@@ -228,4 +228,5 @@ from optimizers.my_ai import MyAIOptimizer
 
 ## 联系方式
 
-如有问题或建议，请提交 Issue。
+如有问题或建议，请提交 Issue 
+项目联系人：LiuZhe,3266048598@qq.com。
