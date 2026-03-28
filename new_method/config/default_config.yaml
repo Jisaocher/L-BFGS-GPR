@@ -1,0 +1,57 @@
+# L-BFGS-GPR 混合优化默认配置
+
+# 分子设置
+molecule:
+  smiles: "CCO"           # 乙醇 SMILES
+  seed: 42                 # 随机种子
+  perturb_strength: 0.0    # 初始扰动强度 (Å)，0 表示无扰动
+
+# 计算方法
+calculation:
+  basis: "cc-pvdz"         # 基组
+  method: "RHF"            # 量子化学方法
+  unit: "angstrom"         # 坐标单位
+
+# 优化器通用设置
+optimizer:
+  max_iterations: 200      # 最大迭代次数
+  convergence_threshold: 1.0e-5  # 梯度收敛阈值
+  verbose: true            # 是否输出详细信息
+
+# L-BFGS 设置
+lbfgs:
+  maxiter: 100             # L-BFGS 最大迭代
+  gtol: 1.0e-5             # 梯度阈值
+  memory: 10               # L-BFGS 记忆步数
+
+# GPR 设置
+gpr:
+  n_init: 10               # 初始采样点数
+  local_radius: 0.5        # 局部搜索半径 (Å)
+  kernel_type: "matern52"  # 核函数类型
+  noise_variance: 1.0e-4   # 噪声方差
+  xi: 0.01                 # EI 采集函数探索参数
+  lambda_grad: 0.1         # 梯度惩罚权重
+
+# 混合策略设置
+hybrid:
+  lbfgs_steps: 5           # 每轮 L-BFGS 步数 (m)
+  gpr_steps: 2             # 每轮 GPR 步数 (n)
+  selection_metric: "combined"  # 选择标准：energy/gradient/combined
+  verify_local_minimum: true    # 验证局部极小值
+  verify_extra_steps: 3         # 确认极小值额外步数
+
+# 输出设置
+output:
+  save_dir: "./output"     # 输出目录
+  save_trajectory: true    # 保存轨迹
+  save_details: true       # 保存详细信息（梯度矩阵、位移等）
+  format: "json"           # 输出格式：json/csv/npy
+  plot_interval: 1         # 绘图间隔（每几步保存一次图）
+
+# 可视化设置
+visualization:
+  font_size: 14            # 图表字体大小
+  figure_size: [12, 8]     # 图表尺寸
+  dpi: 300                 # 图片分辨率
+  show_3d_structure: true  # 显示 3D 分子结构

@@ -1,0 +1,331 @@
+"""
+输入输出工具
+处理数据保存和加载
+"""
+import os
+import json
+import csv
+import numpy as np
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+
+from core.molecule import Molecule, OptimizationHistory, IterationData
+
+
+class OutputManager:
+    """
+    输出管理器
+    
+    负责保存优化结果、轨迹、图表等
+    """
+    
+    def __init__(self, save_dir: str, format: str = 'json'):
+        """
+        初始化输出管理器
+        
+        Args:
+            save_dir: 保存目录
+            format: 输出格式 ('json', 'csv', 'npy')
+        """
+        self.save_dir = save_dir
+        self.format = format
+        
+        # 创建目录
+        os.makedirs(save_dir, exist_ok=True)
+        os.makedirs(os.path.join(save_dir, 'trajectories'), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, 'plots'), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, 'structures'), exist_ok=True)
+    
+    def save_history(self, history: OptimizationHistory, method_name: str,
+                     metadata: Dict[str, Any] = None) -> str:
+        """
+        保存优化历史
+        
+        Args:
+            history: 优化历史
+            method_name: 方法名称
+            metadata: 额外元数据
+        
+        Returns:
+            filepath: 保存的文件路径
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{method_name}_{timestamp}"
+        
+        if self.format == 'json':
+            return self._save_json(history, filename, metadata)
+        elif self.format == 'csv':
+            return self._save_csv(history, filename, metadata)
+        else:
+            return self._save_json(history, filename, metadata)
+    
+    def _save_json(self, history: OptimizationHistory, filename: str,
+                   metadata: Dict[str, Any] = None) -> str:
+        """保存为 JSON 格式"""
+        filepath = os.path.join(self.save_dir, f"{filename}.json")
+        
+        data = history.to_dict()
+        
+        # 添加元数据
+        if metadata:
+            data['metadata'] = metadata
+        
+        # 添加统计信息
+        data['statistics'] = self._compute_statistics(history)
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        
+        print(f"优化历史已保存：{filepath}")
+        return filepath
+    
+    def _save_csv(self, history: OptimizationHistory, filename: str,
+                  metadata: Dict[str, Any] = None) -> str:
+        """保存为 CSV 格式"""
+        filepath = os.path.join(self.save_dir, f"{filename}.csv")
+        
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            
+            # 写入表头
+            writer.writerow([
+                'iteration', 'energy', 'gradient_norm', 'displacement_norm',
+                'energy_change', 'timestamp'
+            ])
+            
+            # 写入数据
+            prev_energy = None
+            for it in history.iterations:
+                displacement_norm = np.linalg.norm(it.displacement) if it.displacement is not None else 0.0
+                energy_change = prev_energy - it.energy if prev_energy is not None else 0.0
+                
+                writer.writerow([
+                    it.iteration,
+                    f"{it.energy:.12f}",
+                    f"{it.gradient_norm:.10f}",
+                    f"{displacement_norm:.10f}",
+                    f"{energy_change:.12f}",
+                    it.timestamp
+                ])
+                
+                prev_energy = it.energy
+        
+        # 同时保存元数据为 JSON
+        if metadata:
+            meta_filepath = os.path.join(self.save_dir, f"{filename}_metadata.json")
+            with open(meta_filepath, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2)
+        
+        print(f"优化历史已保存：{filepath}")
+        return filepath
+    
+    def _compute_statistics(self, history: OptimizationHistory) -> Dict[str, Any]:
+        """计算统计信息"""
+        if not history.iterations:
+            return {}
+        
+        energies = history.get_energies()
+        grad_norms = history.get_gradient_norms()
+        
+        stats = {
+            'total_iterations': len(history),
+            'initial_energy': float(energies[0]),
+            'final_energy': float(energies[-1]),
+            'best_energy': float(np.min(energies)),
+            'energy_improvement': float(energies[0] - energies[-1]),
+            'initial_gradient_norm': float(grad_norms[0]),
+            'final_gradient_norm': float(grad_norms[-1]),
+            'best_gradient_norm': float(np.min(grad_norms)),
+            'converged': history.converged,
+            'convergence_iteration': history.convergence_iteration
+        }
+        
+        if history.start_time and history.end_time:
+            stats['computation_time'] = history.end_time - history.start_time
+        
+        return stats
+    
+    def save_trajectory(self, history: OptimizationHistory, method_name: str,
+                        atom_symbols: List[str]) -> str:
+        """
+        保存优化轨迹为 XYZ 格式
+        
+        Args:
+            history: 优化历史
+            method_name: 方法名称
+            atom_symbols: 原子符号列表
+        
+        Returns:
+            filepath: 保存的文件路径
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filepath = os.path.join(self.save_dir, 'trajectories',
+                               f"{method_name}_trajectory_{timestamp}.xyz")
+        
+        n_atoms = len(atom_symbols)
+        
+        with open(filepath, 'w') as f:
+            for it in history.iterations:
+                # XYZ 格式：原子数
+                f.write(f"{n_atoms}\n")
+                # 注释行：能量和梯度范数
+                f.write(f"Iteration {it.iteration}, Energy={it.energy:.10f}, |grad|={it.gradient_norm:.6f}\n")
+                
+                # 原子坐标
+                coords = it.coords.reshape(n_atoms, 3)
+                for i, sym in enumerate(atom_symbols):
+                    f.write(f"{sym:2s} {coords[i,0]:12.6f} {coords[i,1]:12.6f} {coords[i,2]:12.6f}\n")
+        
+        print(f"优化轨迹已保存：{filepath}")
+        return filepath
+    
+    def save_structure(self, molecule: Molecule, filename: str,
+                       prefix: str = "") -> str:
+        """
+        保存分子结构
+        
+        Args:
+            molecule: 分子对象
+            filename: 文件名
+            prefix: 文件名前缀
+        
+        Returns:
+            filepath: 保存的文件路径
+        """
+        filepath = os.path.join(self.save_dir, 'structures',
+                               f"{prefix}{filename}.xyz")
+        molecule.save_xyz(filepath)
+        print(f"分子结构已保存：{filepath}")
+        return filepath
+    
+    def save_initial_structure(self, molecule: Molecule, method_name: str) -> str:
+        """保存初始结构"""
+        return self.save_structure(molecule, "initial", f"{method_name}_")
+    
+    def save_final_structure(self, molecule: Molecule, method_name: str) -> str:
+        """保存最终结构"""
+        return self.save_structure(molecule, "final", f"{method_name}_")
+    
+    def save_iteration_details(self, history: OptimizationHistory,
+                               method_name: str,
+                               atom_symbols: List[str]) -> str:
+        """
+        保存详细的迭代信息（包括梯度矩阵、位移等）
+        
+        Args:
+            history: 优化历史
+            method_name: 方法名称
+            atom_symbols: 原子符号列表
+        
+        Returns:
+            filepath: 保存的文件路径
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filepath = os.path.join(self.save_dir, f"{method_name}_details_{timestamp}.json")
+        
+        n_atoms = len(atom_symbols)
+        details = {
+            'method': method_name,
+            'timestamp': timestamp,
+            'n_atoms': n_atoms,
+            'atom_symbols': atom_symbols,
+            'iterations': []
+        }
+        
+        for it in history.iterations:
+            coords = it.coords.reshape(n_atoms, 3)
+            gradient = it.gradient.reshape(n_atoms, 3)
+            displacement = it.displacement.reshape(n_atoms, 3) if it.displacement is not None else None
+            
+            iter_data = {
+                'iteration': it.iteration,
+                'energy': it.energy,
+                'gradient_norm': it.gradient_norm,
+                'coords': coords.tolist(),
+                'gradient': gradient.tolist(),
+                'displacement': displacement.tolist() if displacement is not None else None,
+                'timestamp': it.timestamp
+            }
+            details['iterations'].append(iter_data)
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(details, f, indent=2)
+        
+        print(f"详细迭代信息已保存：{filepath}")
+        return filepath
+    
+    def save_summary(self, histories: Dict[str, OptimizationHistory],
+                     metadata: Dict[str, Any] = None) -> str:
+        """
+        保存对比总结
+        
+        Args:
+            histories: 优化历史字典 {method_name: history}
+            metadata: 元数据
+        
+        Returns:
+            filepath: 保存的文件路径
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filepath = os.path.join(self.save_dir, f"comparison_summary_{timestamp}.json")
+        
+        summary = {
+            'timestamp': timestamp,
+            'methods': {}
+        }
+        
+        for method_name, history in histories.items():
+            summary['methods'][method_name] = {
+                'statistics': self._compute_statistics(history),
+                'best_energy': float(history.get_energies().min()) if len(history) > 0 else None,
+                'best_gradient_norm': float(history.get_gradient_norms().min()) if len(history) > 0 else None,
+                'iterations': len(history)
+            }
+        
+        if metadata:
+            summary['metadata'] = metadata
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(summary, f, indent=2)
+        
+        print(f"对比总结已保存：{filepath}")
+        return filepath
+    
+    def save_log(self, message: str, method_name: str) -> str:
+        """
+        保存日志消息
+        
+        Args:
+            message: 日志内容
+            method_name: 方法名称
+        
+        Returns:
+            filepath: 保存的文件路径
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filepath = os.path.join(self.save_dir, f"{method_name}_log_{timestamp}.txt")
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(f"Timestamp: {timestamp}\n")
+            f.write(f"Method: {method_name}\n")
+            f.write("=" * 60 + "\n\n")
+            f.write(message)
+        
+        return filepath
+
+
+def create_output_manager(config: Dict[str, Any]) -> OutputManager:
+    """
+    便捷函数：创建输出管理器
+    
+    Args:
+        config: 配置字典
+    
+    Returns:
+        OutputManager
+    """
+    output_config = config.get('output', {})
+    save_dir = output_config.get('save_dir', './output')
+    format = output_config.get('format', 'json')
+    
+    return OutputManager(save_dir, format)

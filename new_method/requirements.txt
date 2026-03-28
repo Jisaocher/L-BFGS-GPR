@@ -1,0 +1,9 @@
+pyscf>=2.0.0
+rdkit>=2022.0.0
+scipy>=1.8.0
+scikit-learn>=1.0.0
+GPy>=1.10.0
+matplotlib>=3.5.0
+numpy>=1.20.0
+pyyaml>=6.0
+ase>=3.22.0
