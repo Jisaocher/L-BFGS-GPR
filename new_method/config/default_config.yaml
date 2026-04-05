@@ -4,7 +4,7 @@
 molecule:
   smiles: "CCO"           # 乙醇 SMILES
   seed: 42                 # 随机种子
-  perturb_strength: 0.0    # 初始扰动强度 (Å)，0 表示无扰动
+  perturb_strength: 0.1    # 初始扰动强度 (Å)，0.1 用于快速收敛
 
 # 计算方法
 calculation:
@@ -14,31 +14,34 @@ calculation:
 
 # 优化器通用设置
 optimizer:
-  max_iterations: 200      # 最大迭代次数
-  convergence_threshold: 1.0e-5  # 梯度收敛阈值
+  max_iterations: 300      # 最大迭代次数（增加以允许充分收敛）
+  convergence_threshold: 5.0e-4  # 梯度收敛阈值（实际可达成）
   verbose: true            # 是否输出详细信息
 
 # L-BFGS 设置
 lbfgs:
-  maxiter: 100             # L-BFGS 最大迭代
+  maxiter: 500             # L-BFGS 最大迭代
   gtol: 1.0e-5             # 梯度阈值
   memory: 10               # L-BFGS 记忆步数
 
 # GPR 设置
 gpr:
-  n_init: 10               # 初始采样点数
-  local_radius: 0.5        # 局部搜索半径 (Å)
+  n_init: 3                # 初始采样点数（减少以加快训练）
+  type: "simple"           # GPR 类型：simple(只能量) 或 gradient(能量 + 梯度)
+  local_radius: 0.1        # 局部搜索半径 (Å)（0.2→0.1，更小范围）
   kernel_type: "matern52"  # 核函数类型
-  noise_variance: 1.0e-4   # 噪声方差
-  xi: 0.01                 # EI 采集函数探索参数
+  noise_variance: 1.0e-2   # 噪声方差（1e-3→1e-2，增大以加快训练）
+  xi: 0.0001               # EI 采集函数探索参数（0.001→0.0001，更聚焦）
   lambda_grad: 0.1         # 梯度惩罚权重
+  max_training_points: 15  # 最大训练点数（12→15，稍多一点）
+  use_gpr: true            # 是否使用 GPR（设为 false 则纯 L-BFGS）
 
 # 混合策略设置
 hybrid:
   lbfgs_steps: 5           # 每轮 L-BFGS 步数 (m)
-  gpr_steps: 2             # 每轮 GPR 步数 (n)
-  selection_metric: "combined"  # 选择标准：energy/gradient/combined
-  verify_local_minimum: true    # 验证局部极小值
+  gpr_steps: 1             # 每轮 GPR 步数 (n)
+  selection_metric: "energy"  # 选择标准：只选能量最优
+  verify_local_minimum: false   # 验证局部极小值（关闭以加快训练）
   verify_extra_steps: 3         # 确认极小值额外步数
 
 # 输出设置

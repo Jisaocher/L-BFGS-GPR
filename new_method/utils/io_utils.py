@@ -63,19 +63,32 @@ class OutputManager:
                    metadata: Dict[str, Any] = None) -> str:
         """保存为 JSON 格式"""
         filepath = os.path.join(self.save_dir, f"{filename}.json")
-        
+
         data = history.to_dict()
-        
+
         # 添加元数据
         if metadata:
             data['metadata'] = metadata
-        
+
         # 添加统计信息
         data['statistics'] = self._compute_statistics(history)
-        
+
+        # 自定义 JSON 编码器，处理 numpy 类型
+        class NumpyEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, np.bool_):
+                    return bool(obj)
+                elif isinstance(obj, np.integer):
+                    return int(obj)
+                elif isinstance(obj, np.floating):
+                    return float(obj)
+                elif isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                return super().default(obj)
+
         with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        
+            json.dump(data, f, indent=2, ensure_ascii=False, cls=NumpyEncoder)
+
         print(f"优化历史已保存：{filepath}")
         return filepath
     
@@ -123,10 +136,10 @@ class OutputManager:
         """计算统计信息"""
         if not history.iterations:
             return {}
-        
+
         energies = history.get_energies()
         grad_norms = history.get_gradient_norms()
-        
+
         stats = {
             'total_iterations': len(history),
             'initial_energy': float(energies[0]),
@@ -136,13 +149,13 @@ class OutputManager:
             'initial_gradient_norm': float(grad_norms[0]),
             'final_gradient_norm': float(grad_norms[-1]),
             'best_gradient_norm': float(np.min(grad_norms)),
-            'converged': history.converged,
-            'convergence_iteration': history.convergence_iteration
+            'converged': bool(history.converged),
+            'convergence_iteration': int(history.convergence_iteration) if history.convergence_iteration is not None else None
         }
-        
+
         if history.start_time and history.end_time:
-            stats['computation_time'] = history.end_time - history.start_time
-        
+            stats['computation_time'] = float(history.end_time - history.start_time)
+
         return stats
     
     def save_trajectory(self, history: OptimizationHistory, method_name: str,

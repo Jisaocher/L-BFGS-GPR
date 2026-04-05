@@ -98,84 +98,142 @@ class HybridOptimizer(BaseOptimizer):
         
         self.history.start_time = time.time()
         
-        # 初始采样：生成一些训练数据
+        # 初始采样：生成训练数据
         self._initial_sampling(molecule)
         
+        # 从初始采样点中选择最优作为起点
+        coords = self._get_best_from_initial_samples()
+
         # 主循环
-        coords = molecule.get_coords_flat()
         max_iterations = self.config.get('optimizer', {}).get('max_iterations', 200)
         convergence_threshold = self.config.get('optimizer', {}).get('convergence_threshold', 1e-5)
-        
+
         iteration = 0
         no_improvement_count = 0
         max_no_improvement = 20  # 连续多少步无改进则停止
         
+        # 记录全局最优点
+        global_best_coords = coords.copy()
+        global_best_energy = self._calculate_energy(coords)
+        
+        # GPR 配置
+        use_gpr = self.config.get('gpr', {}).get('use_gpr', True)
+        
+        # 早停参数
+        max_no_improvement = 50  # 20→50，允许更多轮次的小改进
+
         while iteration < max_iterations:
             self.current_round += 1
-            
+
             if self.config.get('optimizer', {}).get('verbose', True):
                 print(f"\n{'='*70}")
                 print(f"第 {self.current_round} 轮优化")
                 print(f"{'='*70}")
+                print(f"本轮起点：Energy = {global_best_energy:.10f} Hartree")
+
+            # 收集本轮所有点（包括起点）
+            round_iterations = []
             
-            # 执行 L-BFGS 步骤
-            lbfgs_coords, lbfgs_history = self._run_lbfgs_steps(coords, self.lbfgs_steps)
-            self.history.iterations.extend(lbfgs_history.iterations)
-            iteration += len(lbfgs_history)
+            # 创建起点迭代数据
+            start_energy = self._calculate_energy(coords)
+            start_gradient = self.calculator.calculate_gradient(
+                self.atom_symbols, coords.reshape(-1, 3)
+            )
+            start_data = IterationData(
+                iteration=-1,
+                energy=start_energy,
+                gradient=start_gradient,
+                coords=coords
+            )
+            round_iterations.append(start_data)
+
+            # 执行 L-BFGS 步骤（m 步）
+            lbfgs_history = self._run_lbfgs_steps(coords, self.lbfgs_steps)
+            round_iterations.extend(lbfgs_history.iterations)
+
+            # 执行 GPR 步骤（n 步）- 每轮都执行，验证 AI 方法可行性
+            if use_gpr:
+                last_lbfgs_coords = lbfgs_history.iterations[-1].coords if lbfgs_history.iterations else coords
+                gpr_history = self._run_gpr_steps(last_lbfgs_coords, self.gpr_steps)
+                round_iterations.extend(gpr_history.iterations)
+
+                # 记录 GPR 表现（不跳过，只记录）
+                if gpr_history.iterations:
+                    best_gpr_energy = min(it.energy for it in gpr_history.iterations)
+                    best_lbfgs_energy = min(it.energy for it in lbfgs_history.iterations)
+                    if best_gpr_energy < best_lbfgs_energy - 1e-4:
+                        if self.config.get('optimizer', {}).get('verbose', True):
+                            print(f"GPR 找到更优点：E={best_gpr_energy:.8f}")
+                    else:
+                        if self.config.get('optimizer', {}).get('verbose', True):
+                            print(f"GPR 未找到更优点（当前轮次）")
+
+            # 从本轮所有点中选择最优（起点 + m + n 个点）
+            best_data = min(round_iterations, key=lambda x: x.energy)
+            best_coords = best_data.coords
             
-            # 检查 L-BFGS 结果是否收敛
-            if lbfgs_history.converged:
+            # 添加到总历史
+            self.history.iterations.extend(round_iterations)
+            iteration += len(round_iterations)
+
+            # 更新全局最优
+            current_best_energy = best_data.energy
+            if current_best_energy < global_best_energy:
+                global_best_energy = current_best_energy
+                global_best_coords = best_coords.copy()
+
+            if self.config.get('optimizer', {}).get('verbose', True):
+                print(f"\n本轮最佳：Iter {best_data.iteration}, E={best_data.energy:.8f}, |g|={best_data.gradient_norm:.6f}")
+                print(f"全局最佳：E={global_best_energy:.10f} Hartree")
+
+            # 每轮结束后统一训练 GPR（只训练 1 次）并应用滑动窗口
+            X, y, gradients = self.gpr_model.get_training_data()
+            if len(X) > 3:
+                # 应用滑动窗口，只保留能量最好的 50% 的点（最多 max_training_points）
+                self.gpr_model.limit_training_data_by_percentile(50.0)
+                # 重新训练 GPR
+                X, y, gradients = self.gpr_model.get_training_data()
                 if self.config.get('optimizer', {}).get('verbose', True):
-                    print("L-BFGS 已收敛，验证局部极小值...")
-                
-                if self.verify_local_minimum:
-                    verified = self._verify_minimum(lbfgs_coords, convergence_threshold)
-                    if verified:
-                        self.history.converged = True
-                        self.history.convergence_iteration = len(self.history) - 1
-                        break
-            
-            # 执行 GPR 步骤
-            gpr_coords, gpr_history = self._run_gpr_steps(lbfgs_coords, self.gpr_steps)
-            self.history.iterations.extend(gpr_history.iterations)
-            iteration += len(gpr_history)
-            
-            # 选择最佳点
-            best_coords = self._select_best_in_round(lbfgs_history, gpr_history)
-            
-            if best_coords is not None:
-                coords = best_coords
-            else:
-                coords = gpr_coords
-            
+                    print(f"GPR 训练点数：{len(X)}")
+                self.gpr_model.train(X, y, gradients)
+
+            # 下一轮从全局最优点开始
+            coords = global_best_coords.copy()
+
             # 检查收敛
             current_gradient = self.calculator.calculate_gradient(
                 self.atom_symbols, coords.reshape(-1, 3)
             )
             gradient_norm = np.linalg.norm(current_gradient)
-            
+
             if gradient_norm < convergence_threshold:
                 self.history.converged = True
                 self.history.convergence_iteration = len(self.history) - 1
                 if self.config.get('optimizer', {}).get('verbose', True):
                     print(f"\n收敛！梯度范数：{gradient_norm:.6f}")
                 break
-            
-            # 检查是否无改进
+
+            # 检查是否无改进（能量变化小于 1e-7 Hartree 认为无改进）
+            # 约 0.06 kcal/mol，化学上可认为"基本收敛"
             if len(self.history) > 1:
                 prev_best = self.history.get_best_iteration('energy')
                 if prev_best is not None:
-                    current_energy = self._calculate_energy(coords)
-                    if abs(current_energy - prev_best.energy) < 1e-6:
+                    # 能量改进阈值：1e-7 Hartree
+                    if abs(current_best_energy - prev_best.energy) < 1e-7:
                         no_improvement_count += 1
                     else:
                         no_improvement_count = 0
-            
+                        # 打印当前改进，让用户知道优化仍在进行
+                        energy_diff = abs(current_best_energy - prev_best.energy)
+                        if self.config.get('optimizer', {}).get('verbose', True):
+                            if energy_diff < 1e-5:  # 小改进也显示
+                                print(f"能量改进：{energy_diff:.2e} Hartree")
+
             if no_improvement_count >= max_no_improvement:
                 if self.config.get('optimizer', {}).get('verbose', True):
                     print(f"\n早停：连续{max_no_improvement}步无显著改进")
                 break
-        
+
         self.history.end_time = time.time()
         
         # 打印结束信息
@@ -197,150 +255,205 @@ class HybridOptimizer(BaseOptimizer):
                 self._bounds.append((low, high))
     
     def _initial_sampling(self, molecule: Molecule) -> None:
-        """初始采样生成 GPR 训练数据"""
+        """
+        初始采样生成 GPR 训练数据
+        
+        使用 L-BFGS 迭代 k 次（默认 10 次）生成初始采样点，
+        而不是随机扰动，以提供更高质量的训练数据
+        """
         n_init = self.config.get('gpr', {}).get('n_init', 10)
-        
+
         if self.config.get('optimizer', {}).get('verbose', True):
-            print(f"\n生成 {n_init} 个初始采样点...")
+            print(f"\n使用 L-BFGS 生成 {n_init} 个初始采样点...")
+
+        coords = molecule.get_coords_flat()
         
-        coords = molecule.coords.copy()
+        # 使用 L-BFGS 迭代生成初始样本点
+        from scipy.optimize import minimize
         
-        for i in range(n_init):
-            # 在局部区域内随机采样
-            if i == 0:
-                # 第一个点使用初始坐标
-                sampled_coords = coords.copy()
-            else:
-                # 其他点添加随机扰动
-                np.random.seed(i + 42)
-                perturbation = np.random.uniform(-0.3, 0.3, size=coords.shape)
-                sampled_coords = coords + perturbation
-            
-            # 计算能量和梯度
-            energy, gradient = self.calculator.calculate_energy_gradient(
-                self.atom_symbols, sampled_coords
-            )
-            
-            # 添加到 GPR 训练集
-            self.gpr_model.add_data(
-                sampled_coords.flatten(),
-                energy,
-                gradient
-            )
+        # 创建能量/梯度函数
+        energy_func = lambda x: self.calculator.calculate_energy(self.atom_symbols, x.reshape(-1, 3))
+        gradient_func = lambda x: self.calculator.calculate_gradient(self.atom_symbols, x.reshape(-1, 3))
+        
+        # 用于存储 L-BFGS 迭代点
+        collected_points = []
+        
+        def callback(xk):
+            """回调函数：收集 L-BFGS 迭代点"""
+            energy = energy_func(xk)
+            gradient = gradient_func(xk)
+            collected_points.append((xk.copy(), energy, gradient.copy()))
             
             if self.config.get('optimizer', {}).get('verbose', True):
-                print(f"  Init {i}: Energy = {energy:.8f} Hartree, "
+                print(f"  Init {len(collected_points)-1}: Energy = {energy:.8f} Hartree, "
                       f"|grad| = {np.linalg.norm(gradient):.6f}")
+            
+            # 收集到足够的点后停止
+            if len(collected_points) >= n_init:
+                pass  # 继续让 L-BFGS 完成当前迭代
         
+        # 运行 L-BFGS 收集初始点
+        result = minimize(
+            fun=energy_func,
+            x0=coords,
+            method='L-BFGS-B',
+            jac=gradient_func,
+            callback=callback,
+            options={'maxiter': n_init - 1, 'gtol': 1e-10, 'disp': False}
+        )
+        
+        # 确保至少有 n_init 个点（包括初始点）
+        # 如果 L-BFGS 提前收敛，添加一些扰动点
+        if len(collected_points) < n_init:
+            if self.config.get('optimizer', {}).get('verbose', True):
+                print(f"\nL-BFGS 提前收敛，补充 {n_init - len(collected_points)} 个扰动点...")
+            
+            base_coords = collected_points[-1][0] if collected_points else coords
+            for i in range(len(collected_points), n_init):
+                np.random.seed(i + 42)
+                perturbation = np.random.uniform(-0.1, 0.1, size=base_coords.shape)
+                sampled_coords = base_coords + perturbation
+                
+                energy = energy_func(sampled_coords)
+                gradient = gradient_func(sampled_coords)
+                collected_points.append((sampled_coords, energy, gradient.copy()))
+                
+                if self.config.get('optimizer', {}).get('verbose', True):
+                    print(f"  Init {i}: Energy = {energy:.8f} Hartree, "
+                          f"|grad| = {np.linalg.norm(gradient):.6f} (perturbed)")
+
+        # 将所有点添加到 GPR 训练集
+        for sampled_coords, energy, gradient in collected_points:
+            self.gpr_model.add_data(sampled_coords, energy, gradient)
+
         # 训练 GPR 模型
         X, y, gradients = self.gpr_model.get_training_data()
         self.gpr_model.train(X, y, gradients)
-        
+
         if self.config.get('optimizer', {}).get('verbose', True):
             print("GPR 模型训练完成")
-    
-    def _run_lbfgs_steps(self, coords: np.ndarray, n_steps: int) -> Tuple[np.ndarray, OptimizationHistory]:
+
+    def _get_best_from_initial_samples(self) -> np.ndarray:
         """
-        执行固定步数的 L-BFGS 优化
+        从初始采样点中选择能量最低的作为主循环起点
         
+        Returns:
+            best_coords: 最优坐标
+        """
+        if not self.gpr_model.X_train:
+            return self.current_mol.get_coords_flat()
+        
+        # 找到能量最低的点
+        best_idx = np.argmin(self.gpr_model.y_train)
+        best_coords = self.gpr_model.X_train[best_idx]
+        best_energy = self.gpr_model.y_train[best_idx]
+        
+        if self.config.get('optimizer', {}).get('verbose', True):
+            print(f"\n初始采样最优：Energy = {best_energy:.10f} Hartree (Init {best_idx})")
+        
+        return best_coords
+
+    def _run_lbfgs_steps(self, coords: np.ndarray, n_steps: int) -> OptimizationHistory:
+        """
+        执行固定步数的 L-BFGS 优化（使用 callback 机制，保持 Hessian 连续性）
+
         Args:
             coords: 初始坐标
             n_steps: 步数
-        
+
         Returns:
-            final_coords: 最终坐标
             history: 优化历史
         """
-        # 创建临时的 L-BFGS 优化器
-        temp_lbfgs = LBFGSOptimizer(self.config)
-        temp_lbfgs.current_mol = self.current_mol
-        temp_lbfgs.atom_symbols = self.atom_symbols
-        temp_lbfgs.calculator = self.calculator
-        temp_lbfgs.history = OptimizationHistory()
-        temp_lbfgs._energy_func = temp_lbfgs._energy_func = \
-            type('obj', (object,), {
-                'energy_only': lambda self, x: self.calculator.calculate_energy(
-                    self.atom_symbols, x.reshape(-1, 3)
-                ),
-                'gradient_only': lambda self, x: self.calculator.calculate_gradient(
-                    self.atom_symbols, x.reshape(-1, 3)
-                ),
-                'call_count': 0
-            })()
+        history = OptimizationHistory()
+        calculator = self.calculator
+        atom_symbols = self.atom_symbols
         
-        from scipy.optimize import minimize
-        
+        # 用于记录步数
         step_count = [0]
         prev_coords = [coords.copy()]
+
+        # 创建能量/梯度函数（闭包引用）
+        def energy_only(x):
+            return calculator.calculate_energy(atom_symbols, x.reshape(-1, 3))
         
+        def gradient_only(x):
+            return calculator.calculate_gradient(atom_symbols, x.reshape(-1, 3))
+
         def callback(xk):
-            energy, gradient = temp_lbfgs._energy_func.energy_only(xk), \
-                              temp_lbfgs._energy_func.gradient_only(xk)
+            """scipy 的 callback，在每步后调用"""
+            energy = energy_only(xk)
+            gradient = gradient_only(xk)
             gradient_norm = np.linalg.norm(gradient)
-            
             displacement = np.linalg.norm(xk - prev_coords[0])
             
-            data = temp_lbfgs.get_iteration_data(
-                iteration=len(temp_lbfgs.history),
+            # 记录迭代数据
+            data = IterationData(
+                iteration=step_count[0],
                 energy=energy,
                 gradient=gradient,
-                coords=xk,
-                prev_coords=prev_coords[0]
+                coords=xk.copy(),
+                displacement=prev_coords[0] - xk
             )
-            temp_lbfgs.history.add_iteration(data)
+            history.add_iteration(data)
             
             if self.config.get('optimizer', {}).get('verbose', True):
-                print(f"LBFGS {len(temp_lbfgs.history)-1}: E={energy:.8f}, |g|={gradient_norm:.6f}, d={displacement:.6f}")
+                print(f"LBFGS {step_count[0]}: E={energy:.8f}, |g|={gradient_norm:.6f}, d={displacement:.6f}")
             
+            # 更新上一步坐标
             prev_coords[0] = xk.copy()
             step_count[0] += 1
             
+            # 添加到 GPR 训练集（每步都加）
+            self.gpr_model.add_data(xk.copy(), energy, gradient.copy())
+            
+            # 如果达到步数上限，无法直接停止，但可以通过标记让外部知道
             if step_count[0] >= n_steps:
-                # 通过更新 GPR 训练数据
-                self.gpr_model.add_data(xk, energy, gradient)
-        
+                pass  # 继续让 scipy 完成当前迭代
+
+        # 执行 L-BFGS 优化（连续运行 n_steps 步）
+        from scipy.optimize import minimize
         result = minimize(
-            fun=temp_lbfgs._energy_func.energy_only,
+            fun=energy_only,
             x0=coords,
             method='L-BFGS-B',
-            jac=temp_lbfgs._energy_func.gradient_only,
+            jac=gradient_only,
             callback=callback,
-            options={'maxiter': n_steps, 'gtol': 1e-6, 'disp': False}
+            options={
+                'maxiter': n_steps,  # 连续运行 n_steps
+                'gtol': 1e-10,
+                'disp': False
+            }
         )
         
-        # 重新训练 GPR 模型
-        X, y, gradients = self.gpr_model.get_training_data()
-        if len(X) > 2:
-            self.gpr_model.train(X, y, gradients)
-        
-        return result.x, temp_lbfgs.history
+        # 注意：不在这里训练 GPR，等到轮结束后统一训练
+
+        return history
     
-    def _run_gpr_steps(self, coords: np.ndarray, n_steps: int) -> Tuple[np.ndarray, OptimizationHistory]:
+    def _run_gpr_steps(self, coords: np.ndarray, n_steps: int) -> OptimizationHistory:
         """
         执行 GPR 预测步骤
-        
+
         Args:
             coords: 初始坐标
             n_steps: 步数
-        
+
         Returns:
-            final_coords: 最终坐标
             history: 优化历史
         """
         history = OptimizationHistory()
         current_coords = coords.copy()
         y_min = min(self.gpr_model.y_train) if self.gpr_model.y_train else 0
-        
+
         for i in range(n_steps):
             # 使用采集函数建议下一个点
             next_coords = self.gpr_model.suggest_next_point(self._bounds, y_min)
-            
+
             # 计算真实能量和梯度
             energy, gradient = self.calculator.calculate_energy_gradient(
                 self.atom_symbols, next_coords.reshape(-1, 3)
             )
             gradient_norm = np.linalg.norm(gradient)
-            
+
             # 记录
             displacement = np.linalg.norm(next_coords - current_coords)
             data = self.get_iteration_data(
@@ -351,23 +464,23 @@ class HybridOptimizer(BaseOptimizer):
                 prev_coords=current_coords
             )
             history.add_iteration(data)
-            
+
             if self.config.get('optimizer', {}).get('verbose', True):
                 print(f"GPR   {len(history)-1}: E={energy:.8f}, |g|={gradient_norm:.6f}, d={displacement:.6f}")
-            
+
             # 添加到 GPR 训练集
             self.gpr_model.add_data(next_coords, energy, gradient)
-            
+
             # 更新
             current_coords = next_coords
             y_min = min(y_min, energy)
-        
+
         # 重新训练 GPR 模型
         X, y, gradients = self.gpr_model.get_training_data()
         if len(X) > 2:
             self.gpr_model.train(X, y, gradients)
-        
-        return current_coords, history
+
+        return history
     
     def _select_best_in_round(self, lbfgs_history: OptimizationHistory,
                               gpr_history: OptimizationHistory) -> Optional[np.ndarray]:

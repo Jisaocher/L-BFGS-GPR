@@ -241,10 +241,10 @@ class OptimizationHistory:
         """转换为字典"""
         return {
             'iterations': [it.to_dict() for it in self.iterations],
-            'converged': self.converged,
-            'convergence_iteration': self.convergence_iteration,
-            'start_time': self.start_time,
-            'end_time': self.end_time
+            'converged': bool(self.converged),
+            'convergence_iteration': int(self.convergence_iteration) if self.convergence_iteration is not None else None,
+            'start_time': float(self.start_time) if self.start_time is not None else None,
+            'end_time': float(self.end_time) if self.end_time is not None else None
         }
     
     def save_json(self, filepath: str) -> None:

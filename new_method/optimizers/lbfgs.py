@@ -89,13 +89,13 @@ class LBFGSOptimizer(BaseOptimizer):
         )
         
         self.history.end_time = time.time()
-        
+
         # 检查收敛
         final_grad_norm = np.linalg.norm(self._energy_func.gradient_only(result.x))
         self.history.converged = final_grad_norm < self.gtol
         if self.history.converged:
             self.history.convergence_iteration = len(self.history) - 1
-        
+
         # 打印结束信息
         if self.config.get('optimizer', {}).get('verbose', True):
             print("=" * 70)
@@ -103,11 +103,13 @@ class LBFGSOptimizer(BaseOptimizer):
             print(f"最终能量：{result.fun:.10f} Hartree")
             print(f"最终梯度范数：{final_grad_norm:.6f}")
             print(f"迭代次数：{len(self.history)}")
-            print(f"收敛状态：{'收敛' if self.history.converged else '未收敛'}")
+            print(f"收敛状态：{'是' if self.history.converged else '否'}")
             print(f"计算时间：{self.history.end_time - self.history.start_time:.2f} 秒")
             print(f"能量/梯度调用次数：{self._energy_func.call_count}")
+            print(f"优化终止原因：{result.message}")
+            print(f"优化成功标志：{result.success}")
             print("=" * 70)
-        
+
         return self.history
     
     def _callback(self, xk: np.ndarray) -> None:

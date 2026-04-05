@@ -6,6 +6,16 @@ import matplotlib.pyplot as plt
 from typing import List, Optional, Tuple, Dict
 from core.molecule import OptimizationHistory
 
+# 导入 zhplot 以支持中文显示
+try:
+    import zhplot
+    zhplot.matplotlib_chineseize()
+except (ImportError, AttributeError):
+    # 如果 zhplot 不可用，尝试其他中文支持方式
+    plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 
+                                        'DejaVu Sans', 'sans-serif']
+    plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+
 
 class OptimizationPlotter:
     """

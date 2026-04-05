@@ -1,0 +1,490 @@
+(gpr_env) liuzhe@tianxuan:/mnt/e/wsl_dir/L-BFGS-GPR/new_method$ python main.py --method hybrid --molecule ethanol --perturb 0
+/home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.16.5 and <1.23.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+
+======================================================================
+L-BFGS-GPR 混合优化项目
+======================================================================
+分子：CCO
+扰动：0.0 Å
+种子：42
+方法：hybrid
+输出目录：./output
+======================================================================
+
+初始结构:
+  原子数：9
+  自由度：27
+
+======================================================================
+运行优化：HYBRID
+======================================================================
+======================================================================
+L-BFGS+GPR 混合优化开始
+======================================================================
+L-BFGS 步数 (m): 5
+GPR 步数 (n): 1
+选择标准：energy
+初始能量：-154.0794622110 Hartree
+======================================================================
+
+使用 L-BFGS 生成 3 个初始采样点...
+  Init 0: Energy = -154.08082993 Hartree, |grad| = 0.128798
+  Init 1: Energy = -154.08379965 Hartree, |grad| = 0.044117
+
+L-BFGS 提前收敛，补充 1 个扰动点...
+  Init 2: Energy = -154.04749730 Hartree, |grad| = 0.355438 (perturbed)
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 模型训练完成
+
+初始采样最优：Energy = -154.0837996503 Hartree (Init 1)
+
+======================================================================
+第 1 轮优化
+======================================================================
+本轮起点：Energy = -154.0837996503 Hartree
+LBFGS 0: E=-154.08438332, |g|=0.059413, d=0.032139
+LBFGS 1: E=-154.08497088, |g|=0.035094, d=0.017594
+LBFGS 2: E=-154.08555256, |g|=0.015882, d=0.041939
+LBFGS 3: E=-154.08570412, |g|=0.012918, d=0.016884
+LBFGS 4: E=-154.08588791, |g|=0.019755, d=0.044003
+GPR   0: E=-154.03783961, |g|=0.558825, d=0.313895
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.08588791, |g|=0.019755
+全局最佳：E=-154.0858879114 Hartree
+GPR 训练点数：4
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+
+======================================================================
+第 2 轮优化
+======================================================================
+本轮起点：Energy = -154.0858879114 Hartree
+LBFGS 0: E=-154.08595655, |g|=0.009760, d=0.005273
+LBFGS 1: E=-154.08599755, |g|=0.009758, d=0.005389
+LBFGS 2: E=-154.08608469, |g|=0.014129, d=0.015501
+LBFGS 3: E=-154.08619386, |g|=0.019303, d=0.027215
+LBFGS 4: E=-154.08632810, |g|=0.019805, d=0.044859
+GPR   0: E=-154.02337350, |g|=0.535829, d=0.363196
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.08632810, |g|=0.019805
+全局最佳：E=-154.0863281009 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 3 轮优化
+======================================================================
+本轮起点：Energy = -154.0863281009 Hartree
+LBFGS 0: E=-154.08641820, |g|=0.026360, d=0.013338
+LBFGS 1: E=-154.08651552, |g|=0.015555, d=0.005425
+LBFGS 2: E=-154.08666461, |g|=0.011495, d=0.019301
+LBFGS 3: E=-154.08673533, |g|=0.010806, d=0.014506
+LBFGS 4: E=-154.08687003, |g|=0.014273, d=0.033926
+GPR   0: E=-154.02888611, |g|=0.567559, d=0.338188
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.08687003, |g|=0.014273
+全局最佳：E=-154.0868700267 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 4 轮优化
+======================================================================
+本轮起点：Energy = -154.0868700267 Hartree
+LBFGS 0: E=-154.08694990, |g|=0.023998, d=0.013898
+LBFGS 1: E=-154.08704705, |g|=0.014857, d=0.007828
+LBFGS 2: E=-154.08718751, |g|=0.010650, d=0.025647
+LBFGS 3: E=-154.08726597, |g|=0.012421, d=0.014793
+LBFGS 4: E=-154.08793456, |g|=0.032345, d=0.163891
+GPR   0: E=-153.97906466, |g|=0.809040, d=0.547358
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.08793456, |g|=0.032345
+全局最佳：E=-154.0879345582 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 5 轮优化
+======================================================================
+本轮起点：Energy = -154.0879345582 Hartree
+LBFGS 0: E=-154.08822872, |g|=0.026992, d=0.017401
+LBFGS 1: E=-154.08845181, |g|=0.021363, d=0.012573
+LBFGS 2: E=-154.08868852, |g|=0.037733, d=0.050084
+LBFGS 3: E=-154.08882599, |g|=0.025512, d=0.017961
+LBFGS 4: E=-154.08890895, |g|=0.010397, d=0.009129
+GPR   0: E=-154.00262413, |g|=0.940170, d=0.472562
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.08890895, |g|=0.010397
+全局最佳：E=-154.0889089519 Hartree
+GPR 训练点数：5
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+
+======================================================================
+第 6 轮优化
+======================================================================
+本轮起点：Energy = -154.0889089519 Hartree
+LBFGS 0: E=-154.08897896, |g|=0.022953, d=0.015385
+LBFGS 1: E=-154.08907997, |g|=0.016298, d=0.010770
+LBFGS 2: E=-154.08932794, |g|=0.015040, d=0.051231
+LBFGS 3: E=-154.08951945, |g|=0.020307, d=0.039543
+LBFGS 4: E=-154.09026865, |g|=0.035122, d=0.223250
+GPR   0: E=-154.05165224, |g|=0.372485, d=0.796796
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09026865, |g|=0.035122
+全局最佳：E=-154.0902686462 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 7 轮优化
+======================================================================
+本轮起点：Energy = -154.0902686462 Hartree
+LBFGS 0: E=-154.09089395, |g|=0.027020, d=0.029467
+LBFGS 1: E=-154.09123334, |g|=0.015511, d=0.030820
+LBFGS 2: E=-154.09131111, |g|=0.016609, d=0.014531
+LBFGS 3: E=-154.09136320, |g|=0.007699, d=0.006458
+LBFGS 4: E=-154.09139062, |g|=0.007264, d=0.006369
+GPR   0: E=-153.97289037, |g|=1.135419, d=0.937590
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09139062, |g|=0.007264
+全局最佳：E=-154.0913906250 Hartree
+GPR 训练点数：5
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k1__k2__length_scale is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+
+======================================================================
+第 8 轮优化
+======================================================================
+本轮起点：Energy = -154.0913906250 Hartree
+LBFGS 0: E=-154.09142237, |g|=0.016537, d=0.011585
+LBFGS 1: E=-154.09146825, |g|=0.010123, d=0.006298
+LBFGS 2: E=-154.09154782, |g|=0.012005, d=0.021374
+LBFGS 3: E=-154.09163552, |g|=0.016723, d=0.026810
+LBFGS 4: E=-154.09188048, |g|=0.023599, d=0.084958
+GPR   0: E=-154.00322203, |g|=0.761512, d=0.964832
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09188048, |g|=0.023599
+全局最佳：E=-154.0918804800 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 9 轮优化
+======================================================================
+本轮起点：Energy = -154.0918804800 Hartree
+LBFGS 0: E=-154.09196555, |g|=0.018392, d=0.008870
+LBFGS 1: E=-154.09201624, |g|=0.012822, d=0.003537
+LBFGS 2: E=-154.09213053, |g|=0.006788, d=0.017911
+LBFGS 3: E=-154.09215351, |g|=0.004914, d=0.006858
+LBFGS 4: E=-154.09218695, |g|=0.005945, d=0.013448
+GPR   0: E=-154.05164602, |g|=0.389001, d=1.095295
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09218695, |g|=0.005945
+全局最佳：E=-154.0921869467 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 10 轮优化
+======================================================================
+本轮起点：Energy = -154.0921869467 Hartree
+LBFGS 0: E=-154.09220425, |g|=0.008397, d=0.005821
+LBFGS 1: E=-154.09222363, |g|=0.006312, d=0.004751
+LBFGS 2: E=-154.09225950, |g|=0.007183, d=0.018053
+LBFGS 3: E=-154.09228431, |g|=0.009941, d=0.012798
+LBFGS 4: E=-154.09231840, |g|=0.010952, d=0.012316
+GPR   0: E=-154.03066633, |g|=0.435388, d=0.999467
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09231840, |g|=0.010952
+全局最佳：E=-154.0923184009 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 11 轮优化
+======================================================================
+本轮起点：Energy = -154.0923184009 Hartree
+LBFGS 0: E=-154.09233725, |g|=0.006215, d=0.002867
+LBFGS 1: E=-154.09234912, |g|=0.006308, d=0.002437
+LBFGS 2: E=-154.09238564, |g|=0.005573, d=0.012049
+LBFGS 3: E=-154.09239942, |g|=0.009664, d=0.010447
+LBFGS 4: E=-154.09242090, |g|=0.006993, d=0.007097
+GPR   0: E=-154.02667601, |g|=0.459620, d=1.138913
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09242090, |g|=0.006993
+全局最佳：E=-154.0924208986 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 12 轮优化
+======================================================================
+本轮起点：Energy = -154.0924208986 Hartree
+LBFGS 0: E=-154.09243050, |g|=0.006285, d=0.003765
+LBFGS 1: E=-154.09243726, |g|=0.004148, d=0.001379
+LBFGS 2: E=-154.09245401, |g|=0.003991, d=0.006610
+LBFGS 3: E=-154.09246597, |g|=0.004863, d=0.007131
+LBFGS 4: E=-154.09249154, |g|=0.010206, d=0.019824
+GPR   0: E=-154.00632892, |g|=0.819170, d=1.056690
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09249154, |g|=0.010206
+全局最佳：E=-154.0924915408 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 13 轮优化
+======================================================================
+本轮起点：Energy = -154.0924915408 Hartree
+LBFGS 0: E=-154.09250779, |g|=0.004879, d=0.003190
+LBFGS 1: E=-154.09251318, |g|=0.004110, d=0.001373
+LBFGS 2: E=-154.09253375, |g|=0.002927, d=0.009656
+LBFGS 3: E=-154.09254381, |g|=0.003912, d=0.006479
+LBFGS 4: E=-154.09256756, |g|=0.005642, d=0.016306
+GPR   0: E=-154.05340287, |g|=0.349132, d=1.080467
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09256756, |g|=0.005642
+全局最佳：E=-154.0925675559 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 14 轮优化
+======================================================================
+本轮起点：Energy = -154.0925675559 Hartree
+LBFGS 0: E=-154.09257869, |g|=0.003139, d=0.003547
+LBFGS 1: E=-154.09258425, |g|=0.002768, d=0.002360
+LBFGS 2: E=-154.09259031, |g|=0.008095, d=0.011919
+LBFGS 3: E=-154.09260037, |g|=0.003879, d=0.003391
+LBFGS 4: E=-154.09260441, |g|=0.003069, d=0.001392
+GPR   0: E=-154.03814510, |g|=0.462325, d=0.980580
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09260441, |g|=0.003069
+全局最佳：E=-154.0926044144 Hartree
+GPR 训练点数：5
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+
+======================================================================
+第 15 轮优化
+======================================================================
+本轮起点：Energy = -154.0926044144 Hartree
+LBFGS 0: E=-154.09260733, |g|=0.002692, d=0.001335
+LBFGS 1: E=-154.09261189, |g|=0.003148, d=0.002687
+LBFGS 2: E=-154.09261934, |g|=0.003752, d=0.007060
+LBFGS 3: E=-154.09262243, |g|=0.006276, d=0.008398
+LBFGS 4: E=-154.09262863, |g|=0.003651, d=0.001387
+GPR   0: E=-153.99219732, |g|=0.979002, d=1.084426
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09262863, |g|=0.003651
+全局最佳：E=-154.0926286310 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 16 轮优化
+======================================================================
+本轮起点：Energy = -154.0926286310 Hartree
+LBFGS 0: E=-154.09263221, |g|=0.003661, d=0.001852
+LBFGS 1: E=-154.09263560, |g|=0.003065, d=0.001520
+LBFGS 2: E=-154.09264055, |g|=0.005304, d=0.008398
+LBFGS 3: E=-154.09264549, |g|=0.002870, d=0.002471
+LBFGS 4: E=-154.09264749, |g|=0.002356, d=0.000948
+GPR   0: E=-154.04455349, |g|=0.466181, d=1.241251
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09264749, |g|=0.002356
+全局最佳：E=-154.0926474901 Hartree
+GPR 训练点数：5
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+
+======================================================================
+第 17 轮优化
+======================================================================
+本轮起点：Energy = -154.0926474901 Hartree
+LBFGS 0: E=-154.09264875, |g|=0.001808, d=0.000731
+LBFGS 1: E=-154.09265077, |g|=0.002319, d=0.001560
+LBFGS 2: E=-154.09265502, |g|=0.003004, d=0.004428
+LBFGS 3: E=-154.09266002, |g|=0.004178, d=0.007083
+LBFGS 4: E=-154.09266818, |g|=0.003465, d=0.010247
+GPR   0: E=-154.02014711, |g|=0.599886, d=1.147701
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09266818, |g|=0.003465
+全局最佳：E=-154.0926681809 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 18 轮优化
+======================================================================
+本轮起点：Energy = -154.0926681809 Hartree
+LBFGS 0: E=-154.09267168, |g|=0.005568, d=0.003440
+LBFGS 1: E=-154.09267610, |g|=0.002487, d=0.001256
+LBFGS 2: E=-154.09267883, |g|=0.001261, d=0.002390
+LBFGS 3: E=-154.09267981, |g|=0.001259, d=0.001475
+LBFGS 4: E=-154.09268295, |g|=0.002179, d=0.004821
+GPR   0: E=-154.00415622, |g|=0.775976, d=1.176743
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09268295, |g|=0.002179
+全局最佳：E=-154.0926829461 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 19 轮优化
+======================================================================
+本轮起点：Energy = -154.0926829461 Hartree
+LBFGS 0: E=-154.09268406, |g|=0.001786, d=0.001027
+LBFGS 1: E=-154.09268487, |g|=0.001540, d=0.000640
+LBFGS 2: E=-154.09268749, |g|=0.002968, d=0.006172
+LBFGS 3: E=-154.09268928, |g|=0.002578, d=0.002213
+LBFGS 4: E=-154.09269040, |g|=0.002038, d=0.000643
+GPR   0: E=-154.05842415, |g|=0.454457, d=1.175340
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09269040, |g|=0.002038
+全局最佳：E=-154.0926903953 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 20 轮优化
+======================================================================
+本轮起点：Energy = -154.0926903953 Hartree
+LBFGS 0: E=-154.09269117, |g|=0.001641, d=0.000757
+LBFGS 1: E=-154.09269174, |g|=0.001458, d=0.000475
+LBFGS 2: E=-154.09269448, |g|=0.002336, d=0.005560
+LBFGS 3: E=-154.09269540, |g|=0.003013, d=0.003319
+LBFGS 4: E=-154.09269680, |g|=0.001689, d=0.000739
+GPR   0: E=-154.02562880, |g|=0.604876, d=1.234927
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09269680, |g|=0.001689
+全局最佳：E=-154.0926967956 Hartree
+GPR 训练点数：5
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+
+======================================================================
+第 21 轮优化
+======================================================================
+本轮起点：Energy = -154.0926967956 Hartree
+LBFGS 0: E=-154.09269760, |g|=0.001711, d=0.000966
+LBFGS 1: E=-154.09269831, |g|=0.001364, d=0.000663
+LBFGS 2: E=-154.09269978, |g|=0.001944, d=0.003888
+LBFGS 3: E=-154.09270064, |g|=0.001717, d=0.001418
+LBFGS 4: E=-154.09270305, |g|=0.000979, d=0.002785
+GPR   0: E=-153.95768961, |g|=0.972355, d=1.179060
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09270305, |g|=0.000979
+全局最佳：E=-154.0927030540 Hartree
+GPR 训练点数：5
+
+======================================================================
+第 22 轮优化
+======================================================================
+本轮起点：Energy = -154.0927030540 Hartree
+LBFGS 0: E=-154.09270329, |g|=0.000911, d=0.000480
+GPR   0: E=-154.04215301, |g|=0.550753, d=1.152384
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 0, E=-154.09270329, |g|=0.000911
+全局最佳：E=-154.0927032891 Hartree
+GPR 训练点数：3
+
+======================================================================
+第 23 轮优化
+======================================================================
+本轮起点：Energy = -154.0927032891 Hartree
+LBFGS 0: E=-154.09270342, |g|=0.000673, d=0.000171
+GPR   0: E=-154.04683489, |g|=0.394788, d=1.234503
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 0, E=-154.09270342, |g|=0.000673
+全局最佳：E=-154.0927034159 Hartree
+GPR 训练点数：3
+
+======================================================================
+第 24 轮优化
+======================================================================
+本轮起点：Energy = -154.0927034159 Hartree
+LBFGS 0: E=-154.09270434, |g|=0.002358, d=0.002666
+LBFGS 1: E=-154.09271080, |g|=0.002210, d=0.013562
+LBFGS 2: E=-154.09271383, |g|=0.003232, d=0.011758
+LBFGS 3: E=-154.09271630, |g|=0.001549, d=0.011328
+LBFGS 4: E=-154.09271751, |g|=0.001255, d=0.004119
+GPR   0: E=-154.02069051, |g|=0.634308, d=1.323822
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 4, E=-154.09271751, |g|=0.001255
+全局最佳：E=-154.0927175056 Hartree
+GPR 训练点数：4
+
+======================================================================
+第 25 轮优化
+======================================================================
+本轮起点：Energy = -154.0927175056 Hartree
+LBFGS 0: E=-154.09271835, |g|=0.001287, d=0.001098
+LBFGS 1: E=-154.09271896, |g|=0.000428, d=0.001364
+LBFGS 2: E=-154.09271899, |g|=0.000157, d=0.000150
+GPR   0: E=-154.01324960, |g|=0.637914, d=1.179344
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+GPR 未找到更优点（当前轮次）
+
+本轮最佳：Iter 2, E=-154.09271899, |g|=0.000157
+全局最佳：E=-154.0927189902 Hartree
+GPR 训练点数：4
+ /home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/sklearn/gaussian_process/kernels.py:442: ConvergenceWarning:The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+
+收敛！梯度范数：0.000157
+
+======================================================================
+优化完成！
+======================================================================
+最优能量：-154.0927189902 Hartree
+最优梯度范数：0.000157
+最优迭代：2
+总迭代次数：165
+收敛状态：收敛
+计算时间：1748.45 秒
+GPR 训练点数：4
+======================================================================
+优化历史已保存：./output/hybrid_20260404_111903.json
+优化轨迹已保存：./output/trajectories/hybrid_trajectory_20260404_111903.xyz
+详细迭代信息已保存：./output/hybrid_details_20260404_111903.json
+分子结构已保存：./output/structures/hybrid_final.xyz
+分子结构已保存：./output/structures/hybrid_initial.xyz
+
+======================================================================
+优化结果
+======================================================================
+方法：hybrid
+收敛：是
+最优能量：-154.0927189902 Hartree
+最优梯度范数：0.000157
+迭代次数：165
+======================================================================

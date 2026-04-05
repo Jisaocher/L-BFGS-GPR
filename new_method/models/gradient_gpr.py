@@ -81,24 +81,34 @@ class GradientGPRModel(BaseGPRModel):
             Y_train = np.zeros(n_samples * self.output_dim)
             for i in range(n_samples):
                 Y_train[i * self.output_dim] = y[i]  # 能量
-                Y_train[i * self.output_dim + 1:] = gradients[i]  # 梯度
+                Y_train[i * self.output_dim + 1:(i + 1) * self.output_dim] = gradients[i]  # 梯度
         else:
             Y_train = np.repeat(y, self.output_dim)
         
         # 添加输出索引作为额外输入维度
         X_train_full = np.column_stack([X_train, output_indices])
         Y_train = Y_train.reshape(-1, 1)
-        
+
         # 构建核函数
-        # Matern52 核 × Coregionalize 核
-        input_kernel = GPy.kern.Matern52(self.dim, ARD=True)
-        coreg = GPy.kern.Coregionalize(input_dim=1, output_dim=self.output_dim, rank=5)
-        kernel = input_kernel * coreg
+        # 使用 GPy 的 Coregionalize 核进行多输出 GPR
+        # 输入维度是 self.dim + 1（原始维度 + 输出索引）
+        # 核函数需要作用于前 self.dim 维（坐标），Coregionalize 作用于最后一维（输出索引）
         
+        # 创建输入核（只作用于前 self.dim 维）
+        input_kernel = GPy.kern.Matern52(self.dim, ARD=True)
+        input_kernel.active_dims = list(range(self.dim))
+        
+        # 创建输出核（作用于最后一维）
+        coreg = GPy.kern.Coregionalize(input_dim=1, output_dim=self.output_dim, rank=5, 
+                                        active_dims=[self.dim])
+        
+        # 组合核
+        kernel = input_kernel * coreg
+
         # 创建模型
         self.model = GPy.models.GPRegression(X_train_full, Y_train, kernel)
         self.model.Gaussian_noise.variance = self.noise_variance
-        
+
         # 优化超参数
         try:
             self.model.optimize(messages=False, max_iters=200)
@@ -253,18 +263,56 @@ class SimpleGPRModel(BaseGPRModel):
         super().__init__(config)
         self.name = "SimpleGPRModel"
         self.dim = dim
-        
+        self.bounds = None
+
         from sklearn.gaussian_process import GaussianProcessRegressor
         from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
-        
+
         self.gpr_class = GaussianProcessRegressor
-        self.kernel_class = lambda: ConstantKernel(1.0) * Matern(length_scale=np.ones(dim), nu=2.5) + WhiteKernel(1e-3)
-    
+        # 使用更简单的核函数，加快训练速度
+        self.kernel_class = lambda: ConstantKernel(1.0) * Matern(length_scale=1.0, nu=2.5) + WhiteKernel(1e-3)
+
+    def set_bounds(self, bounds: List[Tuple[float, float]]) -> None:
+        """设置变量边界"""
+        self.bounds = bounds
+
+    def suggest_next_point(self, bounds: List[Tuple[float, float]] = None,
+                           y_min: float = None) -> np.ndarray:
+        """
+        建议下一个采样点
+        
+        使用随机采样 + 采集函数评估，而不是优化采集函数
+        这样更快，虽然可能不是最优但能显著加快速度
+        """
+        if bounds is None:
+            bounds = self.bounds
+
+        if bounds is None:
+            raise ValueError("需要设置边界")
+
+        # 随机生成 20 个候选点
+        dim = len(bounds)
+        candidates = []
+        for _ in range(20):
+            x = np.array([np.random.uniform(b[0], b[1]) for b in bounds])
+            candidates.append(x)
+        
+        # 评估每个候选点的采集函数值
+        best_x = None
+        best_value = -np.inf
+        for x in candidates:
+            value = self.acquisition_function(x, y_min)
+            if value > best_value:
+                best_value = value
+                best_x = x
+        
+        return best_x
+
     def train(self, X: np.ndarray, y: np.ndarray,
               gradients: Optional[np.ndarray] = None) -> None:
         """
         训练简单 GPR 模型
-        
+
         Args:
             X: 输入坐标 (n_samples, dim)
             y: 能量值 (n_samples,)
@@ -272,7 +320,7 @@ class SimpleGPRModel(BaseGPRModel):
         """
         if X.shape[0] < 2:
             raise ValueError("至少需要 2 个训练点")
-        
+
         kernel = self.kernel_class()
         self.model = self.gpr_class(kernel=kernel, normalize_y=True, n_restarts_optimizer=5)
         self.model.fit(X, y)
@@ -309,19 +357,28 @@ class SimpleGPRModel(BaseGPRModel):
         return gradient
     
     def acquisition_function(self, x: np.ndarray, y_min: float = None) -> float:
-        """EI 采集函数"""
+        """
+        EI 采集函数（增强能量权重）
+        
+        为了更积极地探索低能量区域，将 EI 值放大 5 倍
+        同时增加能量差的直接激励
+        """
         if y_min is None and len(self.y_train) > 0:
             y_min = min(self.y_train)
         elif y_min is None:
             y_min = 0.0
-        
+
         mean, var = self.predict(x)
         sigma = np.sqrt(var) if var > 0 else 1e-6
+
+        # 能量差激励：如果预测能量比当前最优低，给予额外奖励
+        energy_improvement = max(0, y_min - mean)
         
         if sigma > 1e-10:
             gamma = (y_min - mean - self.xi) / sigma
             ei = (y_min - mean - self.xi) * norm.cdf(gamma) + sigma * norm.pdf(gamma)
         else:
             ei = max(0, y_min - mean - self.xi)
-        
-        return ei
+
+        # 放大 EI 值 5 倍 + 能量差激励
+        return 5.0 * ei + 2.0 * energy_improvement
