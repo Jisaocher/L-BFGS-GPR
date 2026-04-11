@@ -12,7 +12,7 @@ try:
     zhplot.matplotlib_chineseize()
 except (ImportError, AttributeError):
     # 如果 zhplot 不可用，尝试其他中文支持方式
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 
+    plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS',
                                         'DejaVu Sans', 'sans-serif']
     plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
@@ -21,21 +21,24 @@ class OptimizationPlotter:
     """
     优化过程图表绘制器
     """
-    
+
     def __init__(self, font_size: int = 14, figure_size: Tuple[int, int] = (12, 8),
-                 dpi: int = 300):
+                 dpi: int = 300, ai_method: str = None):
         """
         初始化绘图器
-        
+
         Args:
             font_size: 字体大小
             figure_size: 图形尺寸
             dpi: 分辨率
+            ai_method: AI 方法类型（'simple'/'gradient'/'random_forest'等）
         """
         self.font_size = font_size
         self.figure_size = figure_size
         self.dpi = dpi
-        
+        self.ai_method = ai_method
+        self.ai_suffix = self._get_ai_suffix()
+
         # 设置全局字体
         plt.rcParams['font.size'] = font_size
         plt.rcParams['axes.labelsize'] = font_size
@@ -43,6 +46,16 @@ class OptimizationPlotter:
         plt.rcParams['xtick.labelsize'] = font_size
         plt.rcParams['ytick.labelsize'] = font_size
         plt.rcParams['legend.fontsize'] = font_size
+    
+    def _get_ai_suffix(self) -> str:
+        """获取 AI 方法的简短后缀"""
+        suffix_map = {
+            'simple': 'gpr',
+            'gradient': 'ggpr',
+            'random_forest': 'rf',
+            'neural_network': 'nn'
+        }
+        return suffix_map.get(self.ai_method, '') if self.ai_method else ''
     
     def plot_energy_history(self, history: OptimizationHistory,
                             title: str = "能量收敛曲线",
@@ -311,44 +324,52 @@ class OptimizationPlotter:
     
     def plot_all(self, history: OptimizationHistory,
                  base_path: str,
-                 title_prefix: str = "") -> List[str]:
+                 title_prefix: str = "",
+                 ai_method: str = None) -> List[str]:
         """
         绘制所有图表并保存
-        
+
         Args:
             history: 优化历史
             base_path: 保存路径前缀
-            title_prefix: 标题前缀
-        
+            title_prefix: 标题前缀（包含 AI 方法信息）
+            ai_method: AI 方法类型
+
         Returns:
             saved_paths: 保存的文件路径列表
         """
         saved_paths = []
-        
+
+        # 构建文件名：如果有 AI 方法后缀，则添加到文件名中
+        if self.ai_suffix:
+            file_suffix = f"_{self.ai_suffix}"
+        else:
+            file_suffix = ""
+
         # 能量图
-        energy_path = f"{base_path}_energy.png"
+        energy_path = f"{base_path}{file_suffix}_energy.png"
         self.plot_energy_history(history, title=f"{title_prefix}能量收敛",
                                 save_path=energy_path)
         saved_paths.append(energy_path)
-        
+
         # 梯度图
-        grad_path = f"{base_path}_gradient.png"
+        grad_path = f"{base_path}{file_suffix}_gradient.png"
         self.plot_gradient_history(history, title=f"{title_prefix}梯度收敛",
                                   save_path=grad_path)
         saved_paths.append(grad_path)
-        
+
         # 组合图
-        combined_path = f"{base_path}_combined.png"
+        combined_path = f"{base_path}{file_suffix}_combined.png"
         self.plot_combined_history(history, title=f"{title_prefix}优化收敛",
                                   save_path=combined_path)
         saved_paths.append(combined_path)
-        
-        # 位移图
-        disp_path = f"{base_path}_displacement.png"
+
+        # 位移图（添加 AI 后缀）
+        disp_path = f"{base_path}{file_suffix}_displacement.png"
         self.plot_displacement_history(history, title=f"{title_prefix}位移收敛",
                                       save_path=disp_path)
         saved_paths.append(disp_path)
-        
+
         return saved_paths
 
 

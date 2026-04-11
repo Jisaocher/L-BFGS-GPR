@@ -19,45 +19,65 @@ class OutputManager:
     负责保存优化结果、轨迹、图表等
     """
     
-    def __init__(self, save_dir: str, format: str = 'json'):
+    def __init__(self, save_dir: str, format: str = 'json', 
+                 ai_method: str = None):
         """
         初始化输出管理器
-        
+
         Args:
             save_dir: 保存目录
             format: 输出格式 ('json', 'csv', 'npy')
+            ai_method: AI 方法类型（'simple'/'gradient'/'random_forest'等）
         """
         self.save_dir = save_dir
         self.format = format
+        self.ai_method = ai_method
         
         # 创建目录
         os.makedirs(save_dir, exist_ok=True)
         os.makedirs(os.path.join(save_dir, 'trajectories'), exist_ok=True)
         os.makedirs(os.path.join(save_dir, 'plots'), exist_ok=True)
         os.makedirs(os.path.join(save_dir, 'structures'), exist_ok=True)
-    
+
     def save_history(self, history: OptimizationHistory, method_name: str,
                      metadata: Dict[str, Any] = None) -> str:
         """
         保存优化历史
-        
+
         Args:
             history: 优化历史
             method_name: 方法名称
             metadata: 额外元数据
-        
+
         Returns:
             filepath: 保存的文件路径
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{method_name}_{timestamp}"
         
+        # 构建文件名：如果是 hybrid 方法且指定了 AI 方法，则添加后缀
+        if method_name == 'hybrid' and self.ai_method:
+            # 将 AI 方法类型转换为简短后缀
+            ai_suffix = self._get_ai_method_suffix()
+            filename = f"{method_name}_{ai_suffix}_{timestamp}"
+        else:
+            filename = f"{method_name}_{timestamp}"
+
         if self.format == 'json':
             return self._save_json(history, filename, metadata)
         elif self.format == 'csv':
             return self._save_csv(history, filename, metadata)
         else:
             return self._save_json(history, filename, metadata)
+    
+    def _get_ai_method_suffix(self) -> str:
+        """获取 AI 方法的简短后缀"""
+        suffix_map = {
+            'simple': 'gpr',
+            'gradient': 'ggpr',
+            'random_forest': 'rf',
+            'neural_network': 'nn'
+        }
+        return suffix_map.get(self.ai_method, self.ai_method)
     
     def _save_json(self, history: OptimizationHistory, filename: str,
                    metadata: Dict[str, Any] = None) -> str:
@@ -162,33 +182,40 @@ class OutputManager:
                         atom_symbols: List[str]) -> str:
         """
         保存优化轨迹为 XYZ 格式
-        
+
         Args:
             history: 优化历史
             method_name: 方法名称
             atom_symbols: 原子符号列表
-        
+
         Returns:
             filepath: 保存的文件路径
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filepath = os.path.join(self.save_dir, 'trajectories',
-                               f"{method_name}_trajectory_{timestamp}.xyz")
         
+        # 构建文件名：如果是 hybrid 方法且指定了 AI 方法，则添加后缀
+        if method_name == 'hybrid' and self.ai_method:
+            ai_suffix = self._get_ai_method_suffix()
+            filename = f"{method_name}_{ai_suffix}_trajectory_{timestamp}.xyz"
+        else:
+            filename = f"{method_name}_trajectory_{timestamp}.xyz"
+        
+        filepath = os.path.join(self.save_dir, 'trajectories', filename)
+
         n_atoms = len(atom_symbols)
-        
+
         with open(filepath, 'w') as f:
             for it in history.iterations:
                 # XYZ 格式：原子数
                 f.write(f"{n_atoms}\n")
                 # 注释行：能量和梯度范数
                 f.write(f"Iteration {it.iteration}, Energy={it.energy:.10f}, |grad|={it.gradient_norm:.6f}\n")
-                
+
                 # 原子坐标
                 coords = it.coords.reshape(n_atoms, 3)
                 for i, sym in enumerate(atom_symbols):
                     f.write(f"{sym:2s} {coords[i,0]:12.6f} {coords[i,1]:12.6f} {coords[i,2]:12.6f}\n")
-        
+
         print(f"优化轨迹已保存：{filepath}")
         return filepath
     
@@ -224,21 +251,30 @@ class OutputManager:
                                atom_symbols: List[str]) -> str:
         """
         保存详细的迭代信息（包括梯度矩阵、位移等）
-        
+
         Args:
             history: 优化历史
             method_name: 方法名称
             atom_symbols: 原子符号列表
-        
+
         Returns:
             filepath: 保存的文件路径
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filepath = os.path.join(self.save_dir, f"{method_name}_details_{timestamp}.json")
         
+        # 构建文件名：如果是 hybrid 方法且指定了 AI 方法，则添加后缀
+        if method_name == 'hybrid' and self.ai_method:
+            ai_suffix = self._get_ai_method_suffix()
+            filename = f"{method_name}_{ai_suffix}_details_{timestamp}.json"
+        else:
+            filename = f"{method_name}_details_{timestamp}.json"
+        
+        filepath = os.path.join(self.save_dir, filename)
+
         n_atoms = len(atom_symbols)
         details = {
             'method': method_name,
+            'ai_method': self.ai_method,  # 添加 AI 方法类型到文件内容
             'timestamp': timestamp,
             'n_atoms': n_atoms,
             'atom_symbols': atom_symbols,
@@ -327,18 +363,20 @@ class OutputManager:
         return filepath
 
 
-def create_output_manager(config: Dict[str, Any]) -> OutputManager:
+def create_output_manager(config: Dict[str, Any], 
+                          ai_method: str = None) -> OutputManager:
     """
     便捷函数：创建输出管理器
-    
+
     Args:
         config: 配置字典
-    
+        ai_method: AI 方法类型（'simple'/'gradient'/'random_forest'等）
+
     Returns:
         OutputManager
     """
     output_config = config.get('output', {})
     save_dir = output_config.get('save_dir', './output')
     format = output_config.get('format', 'json')
-    
-    return OutputManager(save_dir, format)
+
+    return OutputManager(save_dir, format, ai_method=ai_method)

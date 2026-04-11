@@ -27,20 +27,32 @@ lbfgs:
 # GPR 设置
 gpr:
   n_init: 3                # 初始采样点数（减少以加快训练）
-  type: "simple"           # GPR 类型：simple(只能量) 或 gradient(能量 + 梯度)
+  type: "gradient_predicting"  # AI 方法类型：
+                               #   - simple: 简单 GPR（只能量）
+                               #   - gradient: 梯度 GPR（能量 + 梯度）
+                               #   - gradient_predicting: 梯度预测 GPR（推荐，直接预测梯度）
+                               #   - random_forest: 随机森林
   local_radius: 0.1        # 局部搜索半径 (Å)（0.2→0.1，更小范围）
-  kernel_type: "matern52"  # 核函数类型
-  noise_variance: 1.0e-2   # 噪声方差（1e-3→1e-2，增大以加快训练）
-  xi: 0.0001               # EI 采集函数探索参数（0.001→0.0001，更聚焦）
+  kernel_type: "matern52"  # 核函数类型（仅 GPR 使用）
+  noise_variance: 1.0e-2   # 噪声方差（增大以加快收敛）
+  xi: 0.1                  # EI 采集函数探索参数（梯度预测用）
   lambda_grad: 0.1         # 梯度惩罚权重
-  max_training_points: 15  # 最大训练点数（12→15，稍多一点）
+  max_training_points: 15  # 最大训练点数（滑动窗口，减少内存和计算）
   use_gpr: true            # 是否使用 GPR（设为 false 则纯 L-BFGS）
+
+# 随机森林参数（当 type="random_forest" 时使用）
+random_forest:
+  n_estimators: 100        # 树的数量
+  max_depth: 10            # 树的最大深度
+  min_samples_split: 2     # 内部节点分裂所需最小样本数
+  min_samples_leaf: 1      # 叶子节点所需最小样本数
 
 # 混合策略设置
 hybrid:
-  lbfgs_steps: 5           # 每轮 L-BFGS 步数 (m)
-  gpr_steps: 1             # 每轮 GPR 步数 (n)
-  selection_metric: "energy"  # 选择标准：只选能量最优
+  lbfgs_steps: 10           # 每轮 L-BFGS 步数 (m)
+  gpr_steps: 2             # 每轮 GPR 步数 (n)
+  selection_metric: "gradient"  # 选择标准：gradient(梯度最小)/energy(能量最低)
+                               # 分子几何优化应该用 gradient，目标是找到梯度为零的点
   verify_local_minimum: false   # 验证局部极小值（关闭以加快训练）
   verify_extra_steps: 3         # 确认极小值额外步数
 

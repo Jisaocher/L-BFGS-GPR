@@ -72,26 +72,38 @@ class HybridOptimizer(BaseOptimizer):
         self.lbfgs_optimizer.current_mol = molecule
         self.lbfgs_optimizer.atom_symbols = molecule.atom_symbols
         self.lbfgs_optimizer.calculator = calculator
-        
-        # 初始化 GPR 模型
+
+        # 初始化 AI 代理模型（支持多种方法）
         dim = molecule.n_atoms * 3
-        gpr_type = self.config.get('gpr', {}).get('type', 'gradient')
-        if gpr_type == 'gradient':
+        ai_method = self.config.get('gpr', {}).get('type', 'simple')
+
+        if ai_method == 'random_forest':
+            from models.random_forest import RandomForestModel
+            self.gpr_model = RandomForestModel(self.config, dim)
+            self.ai_method_name = "Random Forest"
+        elif ai_method == 'gradient_predicting':
+            # 梯度预测 GPR：直接预测梯度向量
+            from models.gradient_predicting_gpr import GradientPredictingGPR
+            self.gpr_model = GradientPredictingGPR(self.config, dim)
+            self.ai_method_name = "Gradient-Predicting GPR"
+        elif ai_method == 'gradient':
             self.gpr_model = GradientGPRModel(self.config, dim)
-        else:
+            self.ai_method_name = "Gradient GPR"
+        else:  # simple 或默认
             self.gpr_model = SimpleGPRModel(self.config, dim)
-        
+            self.ai_method_name = "Simple GPR"
+
         # 设置边界（基于初始坐标的局部区域）
         self._setup_bounds(molecule)
         self.gpr_model.set_bounds(self._bounds)
-        
+
         # 打印开始信息
         if self.config.get('optimizer', {}).get('verbose', True):
             print("=" * 70)
-            print("L-BFGS+GPR 混合优化开始")
+            print(f"L-BFGS+{self.ai_method_name} 混合优化开始")
             print("=" * 70)
             print(f"L-BFGS 步数 (m): {self.lbfgs_steps}")
-            print(f"GPR 步数 (n): {self.gpr_steps}")
+            print(f"{self.ai_method_name} 步数 (n): {self.gpr_steps}")
             print(f"选择标准：{self.selection_metric}")
             print(f"初始能量：{self._calculate_energy(molecule.get_coords_flat()):.10f} Hartree")
             print("=" * 70)
@@ -112,13 +124,16 @@ class HybridOptimizer(BaseOptimizer):
         no_improvement_count = 0
         max_no_improvement = 20  # 连续多少步无改进则停止
         
-        # 记录全局最优点
+        # 记录全局最优点（基于梯度范数，而不是能量！）
         global_best_coords = coords.copy()
         global_best_energy = self._calculate_energy(coords)
-        
+        global_best_grad_norm = np.linalg.norm(
+            self.calculator.calculate_gradient(self.atom_symbols, coords.reshape(-1, 3))
+        )
+
         # GPR 配置
         use_gpr = self.config.get('gpr', {}).get('use_gpr', True)
-        
+
         # 早停参数
         max_no_improvement = 50  # 20→50，允许更多轮次的小改进
 
@@ -163,28 +178,31 @@ class HybridOptimizer(BaseOptimizer):
                     best_lbfgs_energy = min(it.energy for it in lbfgs_history.iterations)
                     if best_gpr_energy < best_lbfgs_energy - 1e-4:
                         if self.config.get('optimizer', {}).get('verbose', True):
-                            print(f"GPR 找到更优点：E={best_gpr_energy:.8f}")
+                            print(f"{self.ai_method_name} 找到更优点：E={best_gpr_energy:.8f}")
                     else:
                         if self.config.get('optimizer', {}).get('verbose', True):
-                            print(f"GPR 未找到更优点（当前轮次）")
+                            print(f"{self.ai_method_name} 未找到更优点（当前轮次）")
 
             # 从本轮所有点中选择最优（起点 + m + n 个点）
-            best_data = min(round_iterations, key=lambda x: x.energy)
+            # 核心修改：选择梯度范数最小的点，而不是能量最低的点！
+            # 分子几何构型优化的目标是找到梯度为零的稳定构型
+            best_data = min(round_iterations, key=lambda x: x.gradient_norm)
             best_coords = best_data.coords
-            
+
             # 添加到总历史
             self.history.iterations.extend(round_iterations)
             iteration += len(round_iterations)
 
-            # 更新全局最优
-            current_best_energy = best_data.energy
-            if current_best_energy < global_best_energy:
-                global_best_energy = current_best_energy
+            # 更新全局最优（基于梯度范数，而不是能量）
+            current_best_grad_norm = best_data.gradient_norm
+            if current_best_grad_norm < global_best_grad_norm:
+                global_best_grad_norm = current_best_grad_norm
                 global_best_coords = best_coords.copy()
+                global_best_energy = best_data.energy  # 同时记录能量
 
             if self.config.get('optimizer', {}).get('verbose', True):
                 print(f"\n本轮最佳：Iter {best_data.iteration}, E={best_data.energy:.8f}, |g|={best_data.gradient_norm:.6f}")
-                print(f"全局最佳：E={global_best_energy:.10f} Hartree")
+                print(f"全局最佳（梯度最小）：E={global_best_energy:.10f} Hartree, |g|={global_best_grad_norm:.6f}")
 
             # 每轮结束后统一训练 GPR（只训练 1 次）并应用滑动窗口
             X, y, gradients = self.gpr_model.get_training_data()
@@ -213,21 +231,21 @@ class HybridOptimizer(BaseOptimizer):
                     print(f"\n收敛！梯度范数：{gradient_norm:.6f}")
                 break
 
-            # 检查是否无改进（能量变化小于 1e-7 Hartree 认为无改进）
-            # 约 0.06 kcal/mol，化学上可认为"基本收敛"
+            # 检查是否无改进（基于梯度范数，而不是能量）
+            # 梯度范数变化小于 1e-6 认为无改进
             if len(self.history) > 1:
-                prev_best = self.history.get_best_iteration('energy')
+                prev_best = self.history.get_best_iteration('gradient')
                 if prev_best is not None:
-                    # 能量改进阈值：1e-7 Hartree
-                    if abs(current_best_energy - prev_best.energy) < 1e-7:
+                    # 梯度改进阈值：1e-6
+                    grad_diff = abs(current_best_grad_norm - prev_best.gradient_norm)
+                    if grad_diff < 1e-6:
                         no_improvement_count += 1
                     else:
                         no_improvement_count = 0
                         # 打印当前改进，让用户知道优化仍在进行
-                        energy_diff = abs(current_best_energy - prev_best.energy)
-                        if self.config.get('optimizer', {}).get('verbose', True):
-                            if energy_diff < 1e-5:  # 小改进也显示
-                                print(f"能量改进：{energy_diff:.2e} Hartree")
+                        if grad_diff < 1e-3:  # 小改进也显示
+                            if self.config.get('optimizer', {}).get('verbose', True):
+                                print(f"梯度改进：Δ|g|={grad_diff:.2e}")
 
             if no_improvement_count >= max_no_improvement:
                 if self.config.get('optimizer', {}).get('verbose', True):

@@ -50,24 +50,38 @@ class MoleculeVisualizer3D:
     """
     3D 分子结构可视化器
     """
-    
+
     def __init__(self, font_size: int = 14, figure_size: Tuple[int, int] = (10, 8),
-                 dpi: int = 300, show_atom_labels: bool = True):
+                 dpi: int = 300, show_atom_labels: bool = True,
+                 ai_method: str = None):
         """
         初始化可视化器
-        
+
         Args:
             font_size: 字体大小
             figure_size: 图形尺寸
             dpi: 分辨率
             show_atom_labels: 是否显示原子标签
+            ai_method: AI 方法类型（'simple'/'gradient'/'random_forest'等）
         """
         self.font_size = font_size
         self.figure_size = figure_size
         self.dpi = dpi
         self.show_atom_labels = show_atom_labels
-        
+        self.ai_method = ai_method
+        self.ai_suffix = self._get_ai_suffix()
+
         plt.rcParams['font.size'] = font_size
+    
+    def _get_ai_suffix(self) -> str:
+        """获取 AI 方法的简短后缀"""
+        suffix_map = {
+            'simple': 'gpr',
+            'gradient': 'ggpr',
+            'random_forest': 'rf',
+            'neural_network': 'nn'
+        }
+        return suffix_map.get(self.ai_method, '') if self.ai_method else ''
     
     def get_atom_color(self, symbol: str) -> str:
         """获取原子颜色"""
@@ -109,62 +123,76 @@ class MoleculeVisualizer3D:
     
     def visualize(self, molecule: Molecule, title: str = None,
                   show: bool = False, save_path: str = None,
-                  elevation: float = 20, azimuth: float = 45,
-                  axis_on: bool = False) -> plt.Figure:
+                  elevation: float = 30, azimuth: float = 45,
+                  axis_on: bool = False, use_spheres: bool = True) -> plt.Figure:
         """
-        可视化分子 3D 结构
-        
+        可视化分子 3D 结构（增强 3D 效果）
+
         Args:
             molecule: 分子对象
             title: 标题
             show: 是否显示
             save_path: 保存路径
-            elevation: 仰角
-            azimuth: 方位角
+            elevation: 仰角（默认 30°，更有立体感）
+            azimuth: 方位角（默认 45°）
             axis_on: 是否显示坐标轴
-        
+            use_spheres: 是否使用球体表示原子（更真实的 3D 效果）
+
         Returns:
             fig: 图形对象
         """
         fig = plt.figure(figsize=self.figure_size, dpi=self.dpi)
         ax = fig.add_subplot(111, projection='3d')
-        
+
         coords = molecule.coords
         atom_symbols = molecule.atom_symbols
-        
-        # 绘制化学键
+
+        # 绘制化学键（使用更粗的线段，模拟圆柱体效果）
         bonds = self._get_bonds(coords, atom_symbols)
         if bonds:
-            bond_lines = []
             for i, j in bonds:
-                bond_lines.append([coords[i], coords[j]])
-            
-            segments = Line3DCollection(bond_lines, colors='gray', 
-                                        linewidths=1.5, alpha=0.7)
-            ax.add_collection(segments)
-        
-        # 绘制原子
+                # 绘制化学键（加粗，模拟圆柱体）
+                ax.plot3D(
+                    [coords[i, 0], coords[j, 0]],
+                    [coords[i, 1], coords[j, 1]],
+                    [coords[i, 2], coords[j, 2]],
+                    color='gray', linewidth=3, alpha=0.6, zorder=1
+                )
+
+        # 绘制原子（使用球体效果）
         for i, symbol in enumerate(atom_symbols):
             color = self.get_atom_color(symbol)
-            radius = self.get_atom_radius(symbol) * 10  # 放大用于显示
+            radius = self.get_atom_radius(symbol) * 8  # 原子球体半径
             
-            # 处理白色原子的边缘
+            # 处理白色原子（氢）的边缘
             if color == 'white':
+                # 白色原子添加深色边缘，增强立体感
                 ax.scatter(coords[i, 0], coords[i, 1], coords[i, 2],
-                          c=color, edgecolors='gray', s=radius**2 * 100,
-                          alpha=0.9, label=symbol)
+                          c=color, edgecolors='darkgray', linewidths=0.5,
+                          s=(radius * 12) ** 2, alpha=1.0,
+                          zorder=10, depthshade=True)
             else:
+                # 其他原子使用纯色，增强立体感
                 ax.scatter(coords[i, 0], coords[i, 1], coords[i, 2],
-                          c=color, s=radius**2 * 100, alpha=0.9, label=symbol)
-            
-            # 原子标签
+                          c=color, s=(radius * 12) ** 2, alpha=1.0,
+                          zorder=10, depthshade=True)
+
+            # 原子标签（调整位置，更清晰）
             if self.show_atom_labels:
-                ax.text(coords[i, 0] + 0.1, coords[i, 1] + 0.1, coords[i, 2] + 0.1,
-                       symbol, fontsize=self.font_size, ha='center', va='center')
-        
-        # 设置视角
+                offset = radius * 0.3
+                ax.text(coords[i, 0] + offset, coords[i, 1] + offset, 
+                       coords[i, 2] + offset,
+                       symbol, fontsize=self.font_size + 2, 
+                       ha='center', va='center',
+                       bbox=dict(boxstyle='round,pad=0.3', 
+                                facecolor='white', 
+                                edgecolor='none',
+                                alpha=0.8),
+                       zorder=15)
+
+        # 设置视角（更有立体感的角度）
         ax.view_init(elev=elevation, azim=azimuth)
-        
+
         # 设置坐标轴
         if not axis_on:
             ax.set_axis_off()
@@ -190,70 +218,91 @@ class MoleculeVisualizer3D:
         
         return fig
     
-    def visualize_comparison(self, molecules: List[Molecule], 
+    def visualize_comparison(self, molecules: List[Molecule],
                              titles: List[str] = None,
                              save_path: str = None,
-                             show: bool = False) -> plt.Figure:
+                             show: bool = False,
+                             elevation: float = 30,
+                             azimuth: float = 45) -> plt.Figure:
         """
-        并排比较多个分子结构
-        
+        并排比较多个分子结构（增强 3D 效果）
+
         Args:
             molecules: 分子列表
             titles: 标题列表
             save_path: 保存路径
             show: 是否显示
-        
+            elevation: 仰角（默认 30°）
+            azimuth: 方位角（默认 45°）
+
         Returns:
             fig: 图形对象
         """
         n_mols = len(molecules)
         fig = plt.figure(figsize=(self.figure_size[0] * n_mols, self.figure_size[1]),
                         dpi=self.dpi)
-        
+
         for idx, mol in enumerate(molecules):
             ax = fig.add_subplot(1, n_mols, idx + 1, projection='3d')
-            
+
             coords = mol.coords
             atom_symbols = mol.atom_symbols
-            
-            # 绘制化学键
+
+            # 绘制化学键（加粗，模拟圆柱体）
             bonds = self._get_bonds(coords, atom_symbols)
             if bonds:
-                bond_lines = []
                 for i, j in bonds:
-                    bond_lines.append([coords[i], coords[j]])
-                
-                segments = Line3DCollection(bond_lines, colors='gray',
-                                           linewidths=1.5, alpha=0.7)
-                ax.add_collection(segments)
-            
-            # 绘制原子
+                    ax.plot3D(
+                        [coords[i, 0], coords[j, 0]],
+                        [coords[i, 1], coords[j, 1]],
+                        [coords[i, 2], coords[j, 2]],
+                        color='gray', linewidth=3, alpha=0.6, zorder=1
+                    )
+
+            # 绘制原子（球体效果）
             for i, symbol in enumerate(atom_symbols):
                 color = self.get_atom_color(symbol)
-                radius = self.get_atom_radius(symbol) * 10
-                
-                ax.scatter(coords[i, 0], coords[i, 1], coords[i, 2],
-                          c=color, s=radius**2 * 100, alpha=0.9)
-                
+                radius = self.get_atom_radius(symbol) * 8
+
+                if color == 'white':
+                    ax.scatter(coords[i, 0], coords[i, 1], coords[i, 2],
+                              c=color, edgecolors='darkgray', linewidths=0.5,
+                              s=(radius * 12) ** 2, alpha=1.0,
+                              zorder=10, depthshade=True)
+                else:
+                    ax.scatter(coords[i, 0], coords[i, 1], coords[i, 2],
+                              c=color, s=(radius * 12) ** 2, alpha=1.0,
+                              zorder=10, depthshade=True)
+
+                # 原子标签
                 if self.show_atom_labels:
-                    ax.text(coords[i, 0] + 0.1, coords[i, 1] + 0.1, coords[i, 2] + 0.1,
-                           symbol, fontsize=self.font_size)
-            
-            ax.view_init(elev=20, azim=45)
+                    offset = radius * 0.3
+                    ax.text(coords[i, 0] + offset, coords[i, 1] + offset,
+                           coords[i, 2] + offset,
+                           symbol, fontsize=self.font_size + 2,
+                           ha='center', va='center',
+                           bbox=dict(boxstyle='round,pad=0.3',
+                                    facecolor='white',
+                                    edgecolor='none',
+                                    alpha=0.8),
+                           zorder=15)
+
+            # 设置视角
+            ax.view_init(elev=elevation, azim=azimuth)
             ax.set_axis_off()
             self._set_equal_aspect(ax, coords)
-            
+
             if titles and idx < len(titles):
-                ax.set_title(titles[idx], fontsize=self.font_size, pad=10)
-        
+                ax.set_title(titles[idx], fontsize=self.font_size, pad=15)
+
         plt.tight_layout()
-        
+
         if save_path:
             plt.savefig(save_path, dpi=self.dpi, bbox_inches='tight')
-        
+
         if show:
             plt.show()
-        
+
         return fig
     
     def _set_equal_aspect(self, ax: Axes3D, coords: np.ndarray) -> None:

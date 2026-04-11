@@ -21,6 +21,17 @@ from visualization.plots import OptimizationPlotter
 from utils.io_utils import OutputManager, create_output_manager
 
 
+def _get_ai_method_suffix(ai_method: str) -> str:
+    """获取 AI 方法的简短后缀"""
+    suffix_map = {
+        'simple': 'gpr',
+        'gradient': 'ggpr',
+        'random_forest': 'rf',
+        'neural_network': 'nn'
+    }
+    return suffix_map.get(ai_method, ai_method) if ai_method else ''
+
+
 def load_config(config_path: str = None) -> Dict[str, Any]:
     """
     加载配置文件
@@ -56,16 +67,18 @@ def merge_configs(default: Dict[str, Any], override: Dict[str, Any]) -> Dict[str
 
 
 def run_optimization(method: str, molecule: Molecule, config: Dict[str, Any],
-                     output_manager: OutputManager) -> Dict[str, Any]:
+                     output_manager: OutputManager,
+                     ai_method: str = None) -> Dict[str, Any]:
     """
     运行优化
-    
+
     Args:
         method: 优化方法 ('lbfgs' 或 'hybrid')
         molecule: 初始分子
         config: 配置字典
         output_manager: 输出管理器
-    
+        ai_method: AI 方法类型（'simple'/'gradient'/'random_forest'等）
+
     Returns:
         results: 优化结果
     """
@@ -126,24 +139,34 @@ def run_optimization(method: str, molecule: Molecule, config: Dict[str, Any],
     plotter = OptimizationPlotter(
         font_size=vis_config.get('font_size', 14),
         figure_size=tuple(vis_config.get('figure_size', [12, 8])),
-        dpi=vis_config.get('dpi', 300)
+        dpi=vis_config.get('dpi', 300),
+        ai_method=ai_method  # 传递 AI 方法类型
     )
-    
+
     plots_dir = os.path.join(output_manager.save_dir, 'plots')
-    plotter.plot_all(history, f"{plots_dir}/{method}", f"{method} - ")
     
+    # 构建图表标题前缀：包含 AI 方法信息
+    if ai_method:
+        ai_suffix = _get_ai_method_suffix(ai_method)
+        title_prefix = f"{method}_{ai_suffix} - "
+    else:
+        title_prefix = f"{method} - "
+    
+    plotter.plot_all(history, f"{plots_dir}/{method}", title_prefix, ai_method=ai_method)
+
     # 生成 3D 结构图
     if vis_config.get('show_3d_structure', True):
         vis = MoleculeVisualizer3D(
             font_size=vis_config.get('font_size', 14),
             figure_size=tuple(vis_config.get('figure_size', [10, 8])),
-            dpi=vis_config.get('dpi', 300)
+            dpi=vis_config.get('dpi', 300),
+            ai_method=ai_method  # 传递 AI 方法类型
         )
-        
+
         # 初始结构
         output_manager.save_initial_structure(molecule, method)
-        
-        # 初始和最终结构对比
+
+        # 最优结构（使用 best_coords 而不是 final）
         best_mol = Molecule(
             molecule.atom_symbols,
             best_coords.reshape(-1, 3),
@@ -151,11 +174,33 @@ def run_optimization(method: str, molecule: Molecule, config: Dict[str, Any],
             f"{molecule.name}_best"
         )
         
+        # 保存最优结构为 XYZ 文件
+        output_manager.save_final_structure(best_mol, method)
+
         structures_dir = os.path.join(output_manager.save_dir, 'structures')
+
+        # 构建结构文件名：如果有 AI 方法后缀，则添加到文件名中
+        if ai_method:
+            ai_suffix = _get_ai_method_suffix(ai_method)
+            struct_filename = f"{method}_{ai_suffix}_comparison.png"
+        else:
+            struct_filename = f"{method}_comparison.png"
+
+        # 图题中标注 AI 方法
+        if ai_method:
+            titles = [
+                'Initial', 
+                f'Best ({ai_method})\nE={best_mol.coords[0,0]:.4f}...'
+            ]
+        else:
+            titles = ['Initial', f'Best (E={best_mol.coords[0,0]:.4f}...)']
+
         vis.visualize_comparison(
             [molecule, best_mol],
-            titles=['Initial', f'Final (E={best_mol.coords[0,0]:.4f}...)'],
-            save_path=f"{structures_dir}/{method}_comparison.png"
+            titles=titles,
+            save_path=f"{structures_dir}/{struct_filename}",
+            elevation=30,  # 更有立体感的仰角
+            azimuth=45     # 方位角
         )
     
     # 返回结果
@@ -243,15 +288,20 @@ def main():
     
     config['molecule']['seed'] = args.seed
     config['molecule']['perturb_strength'] = args.perturb
-    
+
+    # 获取 AI 方法类型（用于输出文件命名）
+    ai_method = None
+    if args.method == 'hybrid':
+        ai_method = config.get('gpr', {}).get('type', 'simple')
+
     # 创建输出管理器
-    output_manager = create_output_manager(config)
-    
+    output_manager = create_output_manager(config, ai_method=ai_method)
+
     # 创建分子
     smiles = config['molecule']['smiles']
     perturb = config['molecule']['perturb_strength']
     seed = config['molecule']['seed']
-    
+
     print(f"\n{'='*70}")
     print("L-BFGS-GPR 混合优化项目")
     print(f"{'='*70}")
@@ -259,6 +309,8 @@ def main():
     print(f"扰动：{perturb} Å")
     print(f"种子：{seed}")
     print(f"方法：{args.method}")
+    if ai_method:
+        print(f"AI 方法：{ai_method}")
     print(f"输出目录：{output_manager.save_dir}")
     print(f"{'='*70}")
     
@@ -270,7 +322,7 @@ def main():
     print(f"  自由度：{molecule.n_atoms * 3}")
     
     # 运行优化
-    results = run_optimization(args.method, molecule, config, output_manager)
+    results = run_optimization(args.method, molecule, config, output_manager, ai_method)
     
     # 打印结果
     print(f"\n{'='*70}")

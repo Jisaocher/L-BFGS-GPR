@@ -714,13 +714,32 @@ python main.py --method lbfgs --molecule ethanol
 python main.py --method lbfgs --molecule ethanol --perturb 0.5
 ```
 
-#### 6.3.2 L-BFGS+GPR 混合优化
+#### 6.3.2 L-BFGS+AI 混合优化
 
+**默认配置（使用简单 GPR）**：
 ```bash
-# 默认配置（推荐）
+python main.py --method hybrid --molecule ethanol --perturb 0.1
+```
+
+**使用随机森林（推荐，速度快）**：
+```bash
+# 方法 1：修改配置文件
+# 编辑 config/default_config.yaml，设置 gpr.type = "random_forest"
 python main.py --method hybrid --molecule ethanol --perturb 0.1
 
-# 自定义参数
+# 方法 2：命令行覆盖（如果支持）
+python main.py --method hybrid --molecule ethanol --perturb 0.1 \
+    --config-override gpr.type=random_forest
+```
+
+**使用梯度 GPR（最精确但最慢）**：
+```bash
+# 编辑 config/default_config.yaml，设置 gpr.type = "gradient"
+python main.py --method hybrid --molecule ethanol --perturb 0.1
+```
+
+**自定义参数**：
+```bash
 python main.py --method hybrid --molecule ethanol \
     --perturb 0.1 \
     --max-iter 200 \
@@ -749,12 +768,23 @@ optimizer:
   max_iterations: 300        # 最大迭代次数
   convergence_threshold: 5e-4  # 收敛阈值
 
-# GPR 设置
+# AI 方法设置（关键：选择使用哪种 AI 方法）
 gpr:
+  type: "simple"             # AI 方法类型：
+                             #   - simple: 简单 GPR（默认，只能量）
+                             #   - gradient: 梯度 GPR（精确但慢）
+                             #   - random_forest: 随机森林（推荐，速度快）
   n_init: 3                  # 初始采样点数
   local_radius: 0.1          # 搜索半径 (Å)
   max_training_points: 15    # 最大训练点数
   use_gpr: true              # 是否启用 GPR
+
+# 随机森林参数（当 type="random_forest" 时使用）
+random_forest:
+  n_estimators: 100          # 树的数量
+  max_depth: 10              # 树的最大深度
+  min_samples_split: 2       # 分裂所需最小样本数
+  min_samples_leaf: 1        # 叶子节点最小样本数
 
 # 混合策略
 hybrid:
@@ -762,24 +792,103 @@ hybrid:
   gpr_steps: 1               # 每轮 GPR 步数
 ```
 
-### 6.5 输出说明
+### 6.5 AI 方法选择指南
+
+| AI 方法 | 适用场景 | 优点 | 缺点 |
+|---------|---------|------|------|
+| `simple` (简单 GPR) | 小分子、快速验证 | 实现简单、参数少 | 高维空间预测不准 |
+| `gradient` (梯度 GPR) | 精确建模、研究 GPR 潜力 | 利用梯度信息、更准确 | 训练慢、内存占用大 |
+| `random_forest` (随机森林) | **推荐**、大分子、快速收敛 | 训练快、预测快、鲁棒 | 无法外推、需较多数据 |
+
+**推荐配置**：
+```yaml
+# 快速测试（随机森林）
+gpr:
+  type: "random_forest"
+  n_init: 5
+
+# 精确研究（梯度 GPR）
+gpr:
+  type: "gradient"
+  n_init: 10
+```
+
+### 6.6 输出说明
 
 运行完成后，输出目录包含：
 
+**使用随机森林（random_forest）**：
 ```
 output/
-├── hybrid_YYYYMMDD_HHMMSS.json          # 优化历史（JSON）
-├── hybrid_trajectory_*.xyz              # 优化轨迹（XYZ 格式）
-├── hybrid_details_*.json                # 详细迭代信息
+├── hybrid_rf_YYYYMMDD_HHMMSS.json     # 优化历史（JSON）
+├── hybrid_rf_trajectory_*.xyz         # 优化轨迹（XYZ 格式）
+├── hybrid_rf_details_*.json           # 详细迭代信息
 ├── plots/
-│   ├── hybrid_energy.png                # 能量收敛曲线
-│   ├── hybrid_gradient.png              # 梯度收敛曲线
-│   └── hybrid_combined.png              # 组合图表
+│   ├── hybrid_rf_energy.png           # 能量收敛曲线
+│   ├── hybrid_rf_gradient.png         # 梯度收敛曲线
+│   └── hybrid_rf_combined.png         # 组合图表
 └── structures/
-    ├── hybrid_initial.xyz               # 初始结构
-    ├── hybrid_final.xyz                 # 最终结构
-    └── hybrid_comparison.png            # 结构对比图
+    ├── hybrid_rf_initial.xyz          # 初始结构
+    ├── hybrid_rf_final.xyz            # 最终结构
+    └── hybrid_rf_comparison.png       # 结构对比图
 ```
+
+**使用简单 GPR（simple）**：
+```
+output/
+├── hybrid_gpr_YYYYMMDD_HHMMSS.json    # AI 方法后缀：gpr
+├── hybrid_gpr_trajectory_*.xyz
+├── hybrid_gpr_details_*.json
+├── plots/
+│   ├── hybrid_gpr_energy.png
+│   ├── hybrid_gpr_gradient.png
+│   └── hybrid_gpr_combined.png
+└── structures/
+    ├── hybrid_gpr_initial.xyz
+    ├── hybrid_gpr_final.xyz
+    └── hybrid_gpr_comparison.png
+```
+
+**使用梯度 GPR（gradient）**：
+```
+output/
+├── hybrid_ggpr_YYYYMMDD_HHMMSS.json   # AI 方法后缀：ggpr
+├── hybrid_ggpr_trajectory_*.xyz
+├── hybrid_ggpr_details_*.json
+├── plots/
+│   ├── hybrid_ggpr_energy.png
+│   ├── hybrid_ggpr_gradient.png
+│   └── hybrid_ggpr_combined.png
+└── structures/
+    ├── hybrid_ggpr_initial.xyz
+    ├── hybrid_ggpr_final.xyz
+    └── hybrid_ggpr_comparison.png
+```
+
+**纯 L-BFGS（无 AI 方法）**：
+```
+output/
+├── lbfgs_YYYYMMDD_HHMMSS.json         # 无 AI 方法后缀
+├── lbfgs_trajectory_*.xyz
+├── lbfgs_details_*.json
+├── plots/
+│   ├── lbfgs_energy.png
+│   ├── lbfgs_gradient.png
+│   └── lbfgs_combined.png
+└── structures/
+    ├── lbfgs_initial.xyz
+    ├── lbfgs_final.xyz
+    └── lbfgs_comparison.png
+```
+
+**AI 方法后缀说明**：
+| AI 方法 | 配置值 | 文件后缀 | 示例文件名 |
+|---------|--------|---------|-----------|
+| 简单 GPR | `simple` | `gpr` | `hybrid_gpr_*.json` |
+| 梯度 GPR | `gradient` | `ggpr` | `hybrid_ggpr_*.json` |
+| 随机森林 | `random_forest` | `rf` | `hybrid_rf_*.json` |
+| 神经网络 | `neural_network` | `nn` | `hybrid_nn_*.json` |
+| 纯 L-BFGS | - | 无 | `lbfgs_*.json` |
 
 ---
 
