@@ -26,12 +26,9 @@ lbfgs:
 
 # GPR 设置
 gpr:
-  n_init: 3                # 初始采样点数（减少以加快训练）
-  type: "gradient_predicting"  # AI 方法类型：
-                               #   - simple: 简单 GPR（只能量）
-                               #   - gradient: 梯度 GPR（能量 + 梯度）
-                               #   - gradient_predicting: 梯度预测 GPR（推荐，直接预测梯度）
-                               #   - random_forest: 随机森林
+  n_init: 5                # 初始采样点数（减少以加快训练）
+  type: "gradient_predicting"  # AI 方法类型（唯一推荐）：
+                               #   - gradient_predicting: 梯度预测 GPR（直接预测梯度，向梯度下降方向预测）
   local_radius: 0.1        # 局部搜索半径 (Å)（0.2→0.1，更小范围）
   kernel_type: "matern52"  # 核函数类型（仅 GPR 使用）
   noise_variance: 1.0e-2   # 噪声方差（增大以加快收敛）
@@ -40,12 +37,31 @@ gpr:
   max_training_points: 15  # 最大训练点数（滑动窗口，减少内存和计算）
   use_gpr: true            # 是否使用 GPR（设为 false 则纯 L-BFGS）
 
-# 随机森林参数（当 type="random_forest" 时使用）
-random_forest:
-  n_estimators: 100        # 树的数量
-  max_depth: 10            # 树的最大深度
-  min_samples_split: 2     # 内部节点分裂所需最小样本数
-  min_samples_leaf: 1      # 叶子节点所需最小样本数
+# AI 训练数据配置（gradient_predicting 方法专用）
+ai_training:
+  i_best_steps: 5          # 使用历史梯度最优的 i 个点
+  j_recent_steps: 10       # 使用最新 j 个点（如果本轮 L-BFGS 步数<j，往回找之前的数据）
+
+# AI 预测配置
+ai_prediction:
+  max_displacement: 0.3    # 最大位移限制 (Å)，防止预测点偏离太远
+  min_displacement: 0.01   # 最小位移 (Å)，避免预测点不变
+
+# 最优点选择权重（用于 L-BFGS+AI 混合策略）
+# 每轮从所有点中选择最优时，综合考虑能量和梯度
+# score = energy_weight * E_normalized + gradient_weight * ||g||_normalized
+selection_weights:
+  energy_weight: 0.3       # 能量权重（0-1 之间）
+  gradient_weight: 0.7     # 梯度权重（0-1 之间）
+                           # 推荐：gradient_weight > energy_weight
+                           # 因为分子几何优化的目标是梯度为零
+
+# 随机森林参数（已移除，不再使用）
+# random_forest:
+#   n_estimators: 100
+#   max_depth: 10
+#   min_samples_split: 2
+#   min_samples_leaf: 1
 
 # 混合策略设置
 hybrid:

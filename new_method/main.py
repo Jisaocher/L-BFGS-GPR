@@ -123,9 +123,10 @@ def run_optimization(method: str, molecule: Molecule, config: Dict[str, Any],
     if config.get('output', {}).get('save_details', True):
         output_manager.save_iteration_details(history, method, molecule.atom_symbols)
     
-    # 获取最优结构
-    best_coords = history.get_best_coords()
-    if best_coords is not None:
+    # 获取最优结构（使用梯度最小的坐标）
+    best_iteration = history.get_best_iteration(metric='gradient')
+    if best_iteration is not None:
+        best_coords = best_iteration.coords
         best_mol = Molecule(
             molecule.atom_symbols,
             best_coords.reshape(-1, 3),

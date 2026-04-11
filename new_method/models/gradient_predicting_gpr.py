@@ -1,11 +1,12 @@
 """
-梯度预测 GPR 模型
-直接预测梯度向量，引导优化向梯度为零的方向进行
+梯度预测 GPR 模型 - 学习优化器策略
 
 核心思想：
-- 输入：原子坐标 R (dim 维)
-- 输出：梯度向量 ∇E(R) (dim 维)
-- 目标：找到使 ||∇E(R)|| 最小的 R
+- 输入：[坐标 (27 维) + 梯度 (27 维)] = 54 维
+- 输出：新坐标 (27 维)
+- 目标：学习"从当前状态预测梯度更小的新坐标"
+
+这本质上是在学习 L-BFGS 的优化策略！
 """
 import numpy as np
 import warnings
@@ -21,16 +22,11 @@ warnings.filterwarnings('ignore', category=UserWarning, module='sklearn.gaussian
 
 class GradientPredictingGPR(BaseGPRModel):
     """
-    直接预测梯度的 GPR 模型
+    梯度预测 GPR 模型 - 学习优化策略
     
-    与能量预测 GPR 的区别：
-    - 能量预测 GPR：训练目标是能量 y，梯度只用于辅助
-    - 梯度预测 GPR：训练目标是梯度向量，直接预测梯度
-    
-    优势：
-    1. 直接建模梯度，预测更准确
-    2. 采集函数直接使用预测梯度范数
-    3. 更符合分子几何优化的物理目标（找到梯度为零的点）
+    与旧版本的区别：
+    - 旧版本：输入坐标 → 预测梯度（27 个独立 GPR）
+    - 新版本：输入 [坐标 + 梯度] → 预测新坐标（一个 GPR 学习优化策略）
     """
 
     def __init__(self, config: Dict[str, Any], dim: int):
@@ -39,241 +35,189 @@ class GradientPredictingGPR(BaseGPRModel):
 
         Args:
             config: 配置字典
-            dim: 输入维度（3 * n_atoms）
+            dim: 输入维度（3 * n_atoms = 27）
         """
         super().__init__(config)
         self.name = "GradientPredictingGPR"
-        self.dim = dim
-
-        # GPR 参数
-        gpr_config = config.get('gpr', {})
-        self.noise_variance = gpr_config.get('noise_variance', 1e-2)
+        self.dim = dim  # 坐标维度（27）
+        self.input_dim = dim * 2  # 输入维度（54 = 坐标 + 梯度）
         
-        # 为每个梯度分量创建独立的 GPR 模型
-        # 这样比多输出 GPR 更快，且能捕捉每个方向的梯度变化
+        # AI 训练配置
+        ai_config = config.get('ai_training', {})
+        self.i_best_steps = ai_config.get('i_best_steps', 5)
+        self.j_recent_steps = ai_config.get('j_recent_steps', 10)
+        
+        # AI 预测配置
+        pred_config = config.get('ai_prediction', {})
+        self.max_displacement = pred_config.get('max_displacement', 0.3)
+        self.min_displacement = pred_config.get('min_displacement', 0.01)
+
+        # 创建 GPR 模型（预测坐标更新）
+        # 使用各向同性核，减少参数数量
+        kernel = (
+            ConstantKernel(1.0, (1e-1, 1e1)) * 
+            Matern(length_scale=1.0, nu=2.5, length_scale_bounds=(0.1, 100.0)) + 
+            WhiteKernel(1e-3, (1e-4, 1e-1))
+        )
+        
+        # 为每个坐标分量创建一个 GPR 模型
         self.models = []
         for i in range(dim):
-            # 使用合理的核函数参数边界
-            # length_scale: 0.01-100 Å，覆盖分子运动的典型尺度
-            # noise_level: 1e-4-1e-1，覆盖典型数值噪声范围
-            kernel = (
-                ConstantKernel(1.0, (1e-1, 1e1)) * 
-                Matern(length_scale=np.ones(dim) * 1.0, nu=2.5, 
-                       length_scale_bounds=(0.01, 100.0)) + 
-                WhiteKernel(1e-3, (1e-4, 1e-1))
-            )
             gpr = GaussianProcessRegressor(
                 kernel=kernel,
                 normalize_y=True,
-                n_restarts_optimizer=2,  # 2 次重启，平衡速度和精度
+                n_restarts_optimizer=2,
                 random_state=42
             )
             self.models.append(gpr)
         
         self.bounds = None
         self.is_trained = False
+        
+        # 存储训练数据（用于增量更新）
+        self.X_train = []  # 输入：[坐标，梯度] (54 维)
+        self.y_train = []  # 输出：新坐标 (27 维)
 
     def set_bounds(self, bounds: List[Tuple[float, float]]) -> None:
         """设置变量边界"""
         self.bounds = bounds
 
+    def add_training_data(self, coords: np.ndarray, gradient: np.ndarray, 
+                         next_coords: np.ndarray) -> None:
+        """
+        添加训练数据
+
+        Args:
+            coords: 当前坐标 (dim,)
+            gradient: 当前梯度 (dim,)
+            next_coords: 下一步坐标 (dim,)
+        """
+        # 构建输入：[坐标，梯度] (54 维)
+        input_vec = np.concatenate([coords.flatten(), gradient.flatten()])
+        self.X_train.append(input_vec)
+        self.y_train.append(next_coords.flatten())
+
     def train(self, X: np.ndarray, y: np.ndarray,
               gradients: Optional[np.ndarray] = None) -> None:
         """
-        训练梯度预测模型
+        训练模型
 
         Args:
-            X: 输入坐标 (n_samples, dim)
-            y: 能量值 (n_samples,) - 这里不使用，仅用于接口兼容
-            gradients: 梯度 (n_samples, dim) ← 这是训练目标！
+            X: 当前轮次的坐标数据 (n_samples, dim) - 不使用，实际数据在 self.X_train
+            y: 能量值（不使用）
+            gradients: 梯度数据 (n_samples, dim) - 不使用
         """
-        if X.shape[0] < 2:
-            raise ValueError("至少需要 2 个训练点")
-        
-        if gradients is None:
-            raise ValueError("梯度预测模型必须提供梯度数据")
-        
-        if gradients.shape != (X.shape[0], self.dim):
-            raise ValueError(f"梯度形状不匹配：期望 {gradients.shape}, 得到 {(X.shape[0], self.dim)}")
+        if len(self.X_train) < 2:
+            print("Warning: 训练数据不足，跳过训练")
+            return
 
-        # 为每个梯度分量训练一个 GPR 模型
-        # 第 i 个模型预测第 i 个梯度分量
-        for i in range(self.dim):
-            try:
-                self.models[i].fit(X, gradients[:, i])
-            except Exception as e:
-                print(f"Warning: 训练梯度分量 {i} 失败：{e}")
-                # 如果训练失败，使用常数预测
-                self.models[i].fit(X, np.zeros(X.shape[0]))
+        # 转换为 numpy 数组
+        try:
+            X_train = np.array(self.X_train)  # (n_samples, 54)
+            y_train = np.array(self.y_train)  # (n_samples, 27)
+            
+            # 确保形状正确
+            if X_train.ndim != 2 or X_train.shape[1] != self.input_dim:
+                print(f"Warning: X_train 形状不正确：{X_train.shape}, 期望：(n, {self.input_dim})")
+                return
+            
+            if y_train.ndim != 2 or y_train.shape[1] != self.dim:
+                print(f"Warning: y_train 形状不正确：{y_train.shape}, 期望：(n, {self.dim})")
+                return
+            
+            # 为每个坐标分量训练一个 GPR 模型
+            for i in range(self.dim):
+                try:
+                    self.models[i].fit(X_train, y_train[:, i])
+                except Exception as e:
+                    print(f"Warning: 训练坐标分量 {i} 失败：{e}")
+                    # 如果训练失败，使用常数预测
+                    self.models[i].fit(X_train, np.zeros(X_train.shape[0]))
+
+            self.is_trained = True
+            print(f"GPR 模型训练完成，使用 {len(self.X_train)} 个训练点")
+            
+        except Exception as e:
+            print(f"Error: 训练失败：{e}")
+            print(f"X_train length: {len(self.X_train)}, y_train length: {len(self.y_train)}")
+
+    def predict_next_coords(self, coords: np.ndarray, gradient: np.ndarray,
+                           apply_displacement_limit: bool = True) -> np.ndarray:
+        """
+        预测下一步坐标
+
+        Args:
+            coords: 当前坐标 (dim,)
+            gradient: 当前梯度 (dim,)
+            apply_displacement_limit: 是否应用位移限制
+
+        Returns:
+            next_coords: 预测的新坐标 (dim,)
+        """
+        if not self.is_trained:
+            print("Warning: 模型未训练，返回当前坐标")
+            return coords.copy()
         
-        self.is_trained = True
+        # 构建输入：[坐标，梯度]
+        input_vec = np.concatenate([coords, gradient]).reshape(1, -1)
+        
+        # 预测每个坐标分量
+        next_coords = np.zeros(self.dim)
+        for i in range(self.dim):
+            next_coords[i] = self.models[i].predict(input_vec)[0]
+        
+        # 应用位移限制
+        if apply_displacement_limit:
+            displacement = next_coords - coords
+            disp_norm = np.linalg.norm(displacement)
+            
+            # 限制最大位移
+            if disp_norm > self.max_displacement:
+                displacement = displacement * (self.max_displacement / disp_norm)
+            
+            # 限制最小位移（避免预测点不变）
+            elif disp_norm < self.min_displacement:
+                if disp_norm > 1e-10:
+                    displacement = displacement * (self.min_displacement / disp_norm)
+                else:
+                    # 如果预测完全不变，沿负梯度方向移动一小步
+                    displacement = -0.01 * gradient / (np.linalg.norm(gradient) + 1e-10)
+            
+            next_coords = coords + displacement
+        
+        return next_coords
 
     def predict(self, x: np.ndarray) -> Tuple[float, float]:
         """
-        预测能量（通过梯度积分近似，这里简单返回 0）
-        
-        注意：这个模型主要用于预测梯度，能量预测是次要的
+        预测能量（占位符，不使用）
         """
-        if not self.is_trained:
-            raise ValueError("模型未训练")
-        
-        # 简单实现：返回平均能量（实际应该通过梯度积分）
         return 0.0, 1.0
 
     def predict_gradient(self, x: np.ndarray) -> np.ndarray:
         """
-        预测梯度向量
-
-        Args:
-            x: 输入坐标 (dim,)
-
-        Returns:
-            gradient: 预测梯度 (dim,)
+        预测梯度（占位符，不使用）
         """
-        if not self.is_trained:
-            raise ValueError("模型未训练")
+        return np.zeros(self.dim)
 
-        x_reshaped = x.reshape(1, -1)
-        
-        # 预测每个梯度分量
-        gradient = np.zeros(self.dim)
-        for i in range(self.dim):
-            gradient[i] = self.models[i].predict(x_reshaped)[0]
-        
-        return gradient
-
-    def predict_gradient_with_uncertainty(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def acquisition_function(self, x: np.ndarray, y_min: float = None) -> float:
         """
-        预测梯度向量及其不确定性
-
-        Args:
-            x: 输入坐标 (dim,)
-
-        Returns:
-            gradient: 预测梯度 (dim,)
-            uncertainty: 预测不确定性 (dim,)
+        采集函数（不使用，因为预测已经是坐标）
         """
-        if not self.is_trained:
-            raise ValueError("模型未训练")
-
-        x_reshaped = x.reshape(1, -1)
-        
-        gradient = np.zeros(self.dim)
-        uncertainty = np.zeros(self.dim)
-        
-        for i in range(self.dim):
-            grad_pred, std_pred = self.models[i].predict(x_reshaped, return_std=True)
-            gradient[i] = grad_pred[0]
-            uncertainty[i] = std_pred[0]
-        
-        return gradient, uncertainty
-
-    def predict_energy_gradient(self, x: np.ndarray) -> Tuple[float, np.ndarray, float]:
-        """
-        同时预测能量和梯度
-
-        Args:
-            x: 输入坐标
-
-        Returns:
-            energy: 预测能量（近似）
-            gradient: 预测梯度
-            energy_var: 能量预测方差
-        """
-        gradient = self.predict_gradient(x)
-        energy, _ = self.predict(x)
-        return energy, gradient, 1.0
-
-    def acquisition_function(self, x: np.ndarray,
-                             y_min: float = None) -> float:
-        """
-        采集函数：预测梯度范数 + 不确定性探索
-        
-        核心思想：
-        1. 预测梯度范数 ||∇E_pred(x)||
-        2. 梯度范数越小，越接近稳定构型
-        3. 加入不确定性探索，鼓励探索高不确定性区域
-        
-        采集函数：
-        Acq(x) = ||∇E_pred(x)|| - ξ·σ(x)
-        
-        其中：
-        - ||∇E_pred(x)||：预测梯度范数（希望小）
-        - σ(x)：预测不确定性（鼓励探索）
-        - ξ：探索参数
-
-        Args:
-            x: 输入坐标
-            y_min: 当前最小能量（不使用）
-
-        Returns:
-            acquisition_value: 采集函数值
-        """
-        predicted_gradient, uncertainty = self.predict_gradient_with_uncertainty(x)
-        predicted_grad_norm = np.linalg.norm(predicted_gradient)
-        avg_uncertainty = np.mean(uncertainty)
-        
-        # 采集函数：梯度范数 - 探索项
-        # 我们希望最小化这个值
-        # 梯度范数小 → 接近稳定构型
-        # 不确定性大 → 鼓励探索
-        xi = self.xi  # 探索参数（从配置读取）
-        acquisition = predicted_grad_norm - xi * avg_uncertainty
-        
-        return acquisition
+        return 0.0
 
     def suggest_next_point(self, bounds: List[Tuple[float, float]],
                            y_min: float = None) -> np.ndarray:
         """
-        建议下一个采样点
-        
-        通过优化采集函数找到梯度最小且不确定性高的区域
-
-        Args:
-            bounds: 变量边界
-            y_min: 当前最小能量（不使用）
-
-        Returns:
-            x_next: 建议的下一个点
+        建议下一个采样点（不使用，由 hybrid.py 直接调用 predict_next_coords）
         """
-        if bounds is None:
-            bounds = self.bounds
+        raise NotImplementedError("GradientPredictingGPR 使用 predict_next_coords 直接预测坐标")
 
-        if bounds is None:
-            raise ValueError("需要设置边界")
+    def clear_data(self) -> None:
+        """清除所有训练数据"""
+        self.X_train = []
+        self.y_train = []
+        self.is_trained = False
 
-        # 随机采样 + 采集函数评估
-        dim = len(bounds)
-        n_candidates = 50  # 候选点数量
-        candidates = []
-        for _ in range(n_candidates):
-            x = np.array([np.random.uniform(b[0], b[1]) for b in bounds])
-            candidates.append(x)
-        
-        # 评估每个候选点的采集函数值
-        best_x = None
-        best_acq_value = np.inf
-        
-        for x in candidates:
-            acq_value = self.acquisition_function(x, y_min)
-            if acq_value < best_acq_value:
-                best_acq_value = acq_value
-                best_x = x
-        
-        return best_x
-
-    def get_confidence(self, x: np.ndarray) -> float:
-        """
-        获取预测置信度（梯度预测方差的倒数）
-        """
-        if not self.is_trained:
-            return 0.0
-        
-        x_reshaped = x.reshape(1, -1)
-        variances = []
-        for i in range(self.dim):
-            _, std = self.models[i].predict(x_reshaped, return_std=True)
-            variances.append(std[0] ** 2)
-        
-        avg_variance = np.mean(variances)
-        return 1.0 / (avg_variance + 1e-10)
+    def n_training_points(self) -> int:
+        """获取训练点数"""
+        return len(self.X_train)

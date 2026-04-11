@@ -2,16 +2,18 @@
 
 ## 项目概述
 
-本项目实现了基于 L-BFGS 和 AI 代理模型的分子几何构型优化方法，支持多种优化策略：
+本项目实现了基于 L-BFGS 和**梯度预测 GPR**的分子几何构型优化方法。
 
-**AI 方法类型**：
-- `simple`：简单 GPR（只能量，默认）
-- `gradient`：梯度 GPR（能量 + 梯度联合建模）
-- `random_forest`：随机森林（推荐，训练预测快）
+**核心思想**：
+- **L-BFGS**：传统拟牛顿法，作为主要优化引擎
+- **梯度预测 GPR**：直接预测梯度向量，引导优化向梯度下降方向进行
+- **综合选择策略**：每轮综合考虑能量和梯度，选择最优起点
 
-**优化方法**：
-- **L-BFGS**：传统拟牛顿法，作为基准方法
-- **L-BFGS+AI**：混合优化策略，结合 L-BFGS 的局部快速收敛和 AI 模型的全局探索能力
+**AI 方法说明**：
+- 项目**仅支持 `gradient_predicting` 方法**（梯度预测 GPR）
+- 该方法**直接预测梯度向量**，而非能量
+- 预测方向：**向梯度下降的方向**（梯度更小的区域）
+- 旧版方法（`simple`、`gradient`、`random_forest`）已移除，因为它们预测能量而非梯度
 
 ## 项目结构
 
@@ -70,35 +72,27 @@ python main.py --method lbfgs --molecule ethanol
 python main.py --method lbfgs --molecule ethanol --perturb 0.5
 ```
 
-### 2. 运行 L-BFGS+AI 混合优化
+### 2. 运行 L-BFGS+梯度预测 GPR 混合优化
 
-**默认配置（使用简单 GPR）**：
+**默认配置（推荐）**：
 ```bash
 python main.py --method hybrid --molecule ethanol --perturb 0.1
 ```
 
-**使用随机森林（推荐，速度快）**：
+**自定义权重配置**：
 ```bash
-# 步骤 1：编辑配置文件
-# 编辑 config/default_config.yaml，设置 gpr.type = "random_forest"
+# 编辑 config/default_config.yaml，调整 selection_weights
+# selection_weights:
+#   energy_weight: 0.3    # 能量权重
+#   gradient_weight: 0.7  # 梯度权重（推荐 > 能量权重）
 
-# 步骤 2：运行优化
-python main.py --method hybrid --molecule ethanol --perturb 0.1
-```
-
-**使用梯度 GPR（精确但慢）**：
-```bash
-# 步骤 1：编辑配置文件
-# 编辑 config/default_config.yaml，设置 gpr.type = "gradient"
-
-# 步骤 2：运行优化
 python main.py --method hybrid --molecule ethanol --perturb 0.1
 ```
 
 ### 3. 运行对比实验
 
 ```bash
-# L-BFGS vs L-BFGS+AI 对比
+# L-BFGS vs L-BFGS+梯度预测 GPR 对比
 python run_comparison.py --smiles CCO --perturb 0.1
 ```
 
@@ -276,42 +270,62 @@ output/comparison_YYYYMMDD_HHMMSS/
 
 ---
 
-## AI 方法选择指南
+## AI 方法说明
 
-### 性能对比
+### 唯一支持的 AI 方法：梯度预测 GPR
 
-| AI 方法 | 配置值 | 训练速度 | 预测速度 | 内存占用 | 推荐场景 |
-|---------|--------|---------|---------|---------|---------|
-| 简单 GPR | `simple` | ⭐⭐⭐ | ⭐⭐⭐ | 中 | 快速验证 |
-| 梯度 GPR | `gradient` | ⭐ | ⭐⭐ | 高 | 精确研究 |
-| 随机森林 | `random_forest` | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 低 | **推荐** |
+项目**仅支持 `gradient_predicting` 方法**，因为：
 
-### 选择建议
+| 方法 | 训练目标 | 预测目标 | 是否符合优化目标 | 状态 |
+|------|---------|---------|----------------|------|
+| `simple` (简单 GPR) | 能量 E | 能量 E | ❌ 能量最低≠梯度为零 | 已移除 |
+| `gradient` (梯度 GPR) | 能量 + 梯度 | 能量 + 梯度 | ⚠️ 目标不纯粹 | 已移除 |
+| `random_forest` | 能量 E | 能量 E | ❌ 能量最低≠梯度为零 | 已移除 |
+| **`gradient_predicting`** | **梯度 ∇E** | **梯度 ∇E** | ✅ **直接预测梯度** | **唯一支持** |
 
-**快速测试**（10-20 分钟）：
-```yaml
-gpr:
-  type: "random_forest"
-  n_init: 3
+### 核心优势
+
+**梯度预测 GPR 的核心优势**：
+1. ✅ **训练目标明确**：直接使用梯度向量作为训练目标
+2. ✅ **预测方向正确**：向梯度下降的方向预测（梯度更小的区域）
+3. ✅ **采集函数合理**：使用预测梯度范数作为采集函数
+4. ✅ **物理意义清晰**：最小化梯度范数 = 接近稳定构型
+
+### 权重配置建议
+
+**综合选择策略**：
+```python
+score = energy_weight * E_normalized + gradient_weight * ||g||_normalized
 ```
 
-**精确研究**（30-50 分钟）：
+**推荐配置**：
 ```yaml
-gpr:
-  type: "gradient"
-  n_init: 10
+selection_weights:
+  energy_weight: 0.3       # 能量权重（0-1）
+  gradient_weight: 0.7     # 梯度权重（0-1，推荐 > 能量权重）
 ```
 
-**基准对比**：
-```bash
-# 1. 先跑 L-BFGS 基准
-python main.py --method lbfgs --molecule ethanol --perturb 0.1
+**原因**：
+- 分子几何优化的**目标是梯度为零**，不是能量最低
+- 但**纯梯度选择**可能选择能量过高但梯度小的点
+- **综合选择**平衡两者，避免极端情况
 
-# 2. 再跑 L-BFGS+随机森林
-# 设置 gpr.type = "random_forest"
-python main.py --method hybrid --molecule ethanol --perturb 0.1
+**特殊情况**：
+```yaml
+# 纯梯度选择（激进）
+selection_weights:
+  energy_weight: 0.0
+  gradient_weight: 1.0
 
-# 3. 对比结果
+# 纯能量选择（不推荐）
+selection_weights:
+  energy_weight: 1.0
+  gradient_weight: 0.0
+
+# 平衡选择（折中）
+selection_weights:
+  energy_weight: 0.5
+  gradient_weight: 0.5
 ```
 
 ---
