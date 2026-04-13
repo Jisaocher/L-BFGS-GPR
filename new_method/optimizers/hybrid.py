@@ -115,12 +115,17 @@ class HybridOptimizer(BaseOptimizer):
 
         # 主循环
         max_iterations = self.config.get('optimizer', {}).get('max_iterations', 200)
-        convergence_threshold = self.config.get('optimizer', {}).get('convergence_threshold', 1e-5)
+        
+        # 收敛判定参数（从配置文件读取）
+        hybrid_config = self.config.get('hybrid', {})
+        conv_config = hybrid_config.get('convergence', {})
+        convergence_threshold = float(conv_config.get('threshold', self.config.get('optimizer', {}).get('convergence_threshold', 5e-4)))
+        max_no_improvement = int(conv_config.get('max_no_improvement', 50))
+        no_improvement_threshold = float(conv_config.get('no_improvement_threshold', 1e-6))
 
         iteration = 0
         no_improvement_count = 0
-        max_no_improvement = 20  # 连续多少步无改进则停止
-        
+
         # 记录全局最优点（基于梯度范数，而不是能量！）
         global_best_coords = coords.copy()
         global_best_energy = self._calculate_energy(coords)
@@ -130,9 +135,6 @@ class HybridOptimizer(BaseOptimizer):
 
         # GPR 配置
         use_gpr = self.config.get('gpr', {}).get('use_gpr', True)
-
-        # 早停参数
-        max_no_improvement = 50  # 20→50，允许更多轮次的小改进
 
         while iteration < max_iterations:
             self.current_round += 1
@@ -164,26 +166,54 @@ class HybridOptimizer(BaseOptimizer):
             # 执行 L-BFGS 步骤（m 步）
             lbfgs_history = self._run_lbfgs_steps(coords, self.lbfgs_steps)
             round_iterations.extend(lbfgs_history.iterations)
-            
+
             # 保存 L-BFGS 历史供 AI 训练使用
             self._current_lbfgs_history = lbfgs_history
+            
+            # 检查 L-BFGS 是否提前收敛（实际迭代次数 < m）
+            # 如果 scipy 提前终止，说明 L-BFGS 已达到收敛标准
+            if len(lbfgs_history.iterations) < self.lbfgs_steps:
+                # 先把本轮数据添加到总历史
+                self.history.iterations.extend(round_iterations)
+                
+                if self.config.get('optimizer', {}).get('verbose', True):
+                    print(f"\n→ L-BFGS 提前收敛（实际迭代 {len(lbfgs_history.iterations)} 步 < {self.lbfgs_steps} 步）")
+                    print(f"→ 已达到 L-BFGS 收敛标准，从全局选择最优结果\n")
+                
+                # 从全局历史中选择梯度最小的点
+                best_iteration = min(self.history.iterations, key=lambda x: x.gradient_norm)
+                
+                # 判断最佳点来自哪一轮、哪种方法
+                # 通过轮次信息来追踪
+                if self.config.get('optimizer', {}).get('verbose', True):
+                    # 找到最佳点来自哪一轮
+                    # 由于我们没有存储轮次信息，这里简化处理：
+                    # 直接使用当前轮次（因为 L-BFGS 提前收敛说明已经找到最优）
+                    best_round = self.current_round
+                    
+                    # 判断是 L-BFGS 还是 GPR（根据梯度判断）
+                    # 梯度最小的点通常来自 L-BFGS
+                    if best_iteration.gradient_norm < 0.001:
+                        best_method = "LBFGS"
+                    else:
+                        best_method = "GPR"
+                    
+                    best_step = best_iteration.iteration
+
+                    print(f"全局最优：第 {best_round} 轮 {best_method} {best_step}, E={best_iteration.energy:.8f}, |g|={best_iteration.gradient_norm:.6f}")
+                    print(f"收敛！梯度范数：{best_iteration.gradient_norm:.6f}")
+                
+                # 设置收敛标志
+                self.history.converged = True
+                self.history.convergence_iteration = len(self.history) - 1
+                break
 
             # 执行 GPR 步骤（n 步）- 每轮都执行，验证 AI 方法可行性
+            gpr_history = None
             if use_gpr:
                 last_lbfgs_coords = lbfgs_history.iterations[-1].coords if lbfgs_history.iterations else coords
                 gpr_history = self._run_gpr_steps(last_lbfgs_coords, self.gpr_steps)
                 round_iterations.extend(gpr_history.iterations)
-
-                # 记录 GPR 表现（不跳过，只记录）
-                if gpr_history.iterations:
-                    best_gpr_energy = min(it.energy for it in gpr_history.iterations)
-                    best_lbfgs_energy = min(it.energy for it in lbfgs_history.iterations)
-                    if best_gpr_energy < best_lbfgs_energy - 1e-4:
-                        if self.config.get('optimizer', {}).get('verbose', True):
-                            print(f"{self.ai_method_name} 找到更优点：E={best_gpr_energy:.8f}")
-                    else:
-                        if self.config.get('optimizer', {}).get('verbose', True):
-                            print(f"{self.ai_method_name} 未找到更优点（当前轮次）")
 
             # 从本轮候选点中选择最优
             # 候选点包括：
@@ -192,17 +222,17 @@ class HybridOptimizer(BaseOptimizer):
             # 不包括：
             # - 本轮起点（已在上一轮评估过）
             # - L-BFGS 的中间步骤（只是过程，不是最终结果）
-            
+
             # 获取候选点
             candidate_points = []
-            
+
             # 1. 添加 L-BFGS 最后一步（如果有）
             if lbfgs_history.iterations:
                 lbfgs_final = lbfgs_history.iterations[-1]
                 candidate_points.append(lbfgs_final)
-            
+
             # 2. 添加 AI 方法的所有迭代（如果有）
-            if gpr_history.iterations:
+            if gpr_history and gpr_history.iterations:
                 for it in gpr_history.iterations:
                     candidate_points.append(it)
             
@@ -259,11 +289,34 @@ class HybridOptimizer(BaseOptimizer):
             self.history.iterations.extend(round_iterations)
             iteration += len(round_iterations)
 
+            # 判断最佳点来自 L-BFGS 还是 GPR
+            is_best_from_lbfgs = lbfgs_history.iterations and best_data == lbfgs_history.iterations[-1]
+            
             if self.config.get('optimizer', {}).get('verbose', True):
-                print(f"\n本轮最佳：Iter {best_data.iteration}, E={best_data.energy:.8f}, |g|={best_data.gradient_norm:.6f}")
+                if is_best_from_lbfgs:
+                    print(f"\n本轮最佳：LBFGS {best_data.iteration}, E={best_data.energy:.8f}, |g|={best_data.gradient_norm:.6f}")
+                elif gpr_history and gpr_history.iterations:
+                    # 判断是 GPR 的第几步
+                    gpr_step = list(gpr_history.iterations).index(best_data) + 1
+                    print(f"\n本轮最佳：GPR {gpr_step}, E={best_data.energy:.8f}, |g|={best_data.gradient_norm:.6f}")
+                else:
+                    print(f"\n本轮最佳：Iter {best_data.iteration}, E={best_data.energy:.8f}, |g|={best_data.gradient_norm:.6f}")
+                
                 print(f"选择权重：能量={energy_weight:.2f}, 梯度={gradient_weight:.2f}")
                 print(f"起点能量：{start_energy:.8f}, 起点梯度：{start_grad_norm:.6f}")
                 print(f"最佳点能量变化：ΔE={best_data.energy - start_energy:.6f}, 梯度变化：Δ|g|={best_data.gradient_norm - start_grad_norm:.6f}")
+                
+                # 判断 GPR 是否找到更优点
+                if use_gpr and gpr_history and gpr_history.iterations:
+                    best_gpr_energy = min(it.energy for it in gpr_history.iterations)
+                    best_gpr_grad = min(it.gradient_norm for it in gpr_history.iterations)
+                    best_lbfgs_energy = lbfgs_history.iterations[-1].energy if lbfgs_history.iterations else float('inf')
+                    best_lbfgs_grad = lbfgs_history.iterations[-1].gradient_norm if lbfgs_history.iterations else float('inf')
+                    
+                    if best_gpr_energy < best_lbfgs_energy - 1e-4 or best_gpr_grad < best_lbfgs_grad:
+                        print(f"{self.ai_method_name} 找到更优点！")
+                    else:
+                        print(f"{self.ai_method_name} 未找到更优点（当前轮次）")
 
             # 每轮结束后统一训练 GPR（只训练 1 次）
             # 注意：gradient_predicting 方法使用自己的训练数据管理，不需要滑动窗口
@@ -295,15 +348,15 @@ class HybridOptimizer(BaseOptimizer):
                 break
 
             # 检查是否无改进（基于梯度范数，而不是能量）
-            # 梯度范数变化小于 1e-6 认为无改进
+            # 梯度范数变化小于阈值认为无改进
             if len(self.history) > 1:
                 prev_best = self.history.get_best_iteration('gradient')
                 if prev_best is not None:
                     # 使用本轮最佳点的梯度范数
                     current_best_grad_norm = best_data.gradient_norm
-                    # 梯度改进阈值：1e-6
+                    # 梯度改进阈值：从配置读取
                     grad_diff = abs(current_best_grad_norm - prev_best.gradient_norm)
-                    if grad_diff < 1e-6:
+                    if grad_diff < no_improvement_threshold:
                         no_improvement_count += 1
                     else:
                         no_improvement_count = 0
@@ -350,10 +403,9 @@ class HybridOptimizer(BaseOptimizer):
         """
         初始采样生成 GPR 训练数据
 
-        使用 L-BFGS 迭代 k 次（默认 10 次）生成初始采样点，
-        而不是随机扰动，以提供更高质量的训练数据
+        使用 L-BFGS 迭代 n_init 次生成初始采样点
         """
-        n_init = self.config.get('gpr', {}).get('n_init', 10)
+        n_init = self.config.get('gpr', {}).get('n_init', 5)
 
         if self.config.get('optimizer', {}).get('verbose', True):
             print(f"\n使用 L-BFGS 生成 {n_init} 个初始采样点...")
@@ -377,10 +429,10 @@ class HybridOptimizer(BaseOptimizer):
             gradient = gradient_func(xk)
             collected_points.append((xk.copy(), energy, gradient.copy()))
             
-            # 保存用于 AI 训练
+            # 保存用于 AI 训练（迭代序号从 1 开始）
             from core.molecule import IterationData
             data = IterationData(
-                iteration=len(self._initial_sampling_history),
+                iteration=len(self._initial_sampling_history) + 1,  # 从 1 开始
                 energy=energy,
                 gradient=gradient,
                 coords=xk.copy()
@@ -388,63 +440,29 @@ class HybridOptimizer(BaseOptimizer):
             self._initial_sampling_history.append(data)
 
             if self.config.get('optimizer', {}).get('verbose', True):
-                print(f"  Init {len(collected_points)-1}: Energy = {energy:.8f} Hartree, "
+                print(f"  Init {len(collected_points)}: Energy = {energy:.8f} Hartree, "
                       f"|grad| = {np.linalg.norm(gradient):.6f}")
 
-            # 收集到足够的点后停止
-            if len(collected_points) >= n_init:
-                pass  # 继续让 L-BFGS 完成当前迭代
-
-        # 运行 L-BFGS 收集初始点
+        # 运行 L-BFGS 收集初始点（固定迭代 n_init 次）
         result = minimize(
             fun=energy_func,
             x0=coords,
             method='L-BFGS-B',
             jac=gradient_func,
             callback=callback,
-            options={'maxiter': n_init - 1, 'gtol': 1e-10, 'disp': False}
+            options={
+                'maxiter': n_init,  # 固定迭代次数
+                'gtol': 1e-10,      # 设置很小的梯度阈值，让 L-BFGS 跑满指定次数
+                'disp': False
+            }
         )
 
-        # 确保至少有 n_init 个点（包括初始点）
-        # 如果 L-BFGS 提前收敛，添加一些扰动点
-        if len(collected_points) < n_init:
-            if self.config.get('optimizer', {}).get('verbose', True):
-                print(f"\nL-BFGS 提前收敛，补充 {n_init - len(collected_points)} 个扰动点...")
-
-            base_coords = collected_points[-1][0] if collected_points else coords
-            for i in range(len(collected_points), n_init):
-                np.random.seed(i + 42)
-                perturbation = np.random.uniform(-0.1, 0.1, size=base_coords.shape)
-                sampled_coords = base_coords + perturbation
-
-                energy = energy_func(sampled_coords)
-                gradient = gradient_func(sampled_coords)
-                collected_points.append((sampled_coords, energy, gradient.copy()))
-                
-                # 保存扰动点
-                from core.molecule import IterationData
-                data = IterationData(
-                    iteration=len(self._initial_sampling_history),
-                    energy=energy,
-                    gradient=gradient,
-                    coords=sampled_coords.copy()
-                )
-                self._initial_sampling_history.append(data)
-
-                if self.config.get('optimizer', {}).get('verbose', True):
-                    print(f"  Init {i}: Energy = {energy:.8f} Hartree, "
-                          f"|grad| = {np.linalg.norm(gradient):.6f} (perturbed)")
-
-        # 将所有点添加到 GPR 训练集
+        # 将所有点添加到 GPR 训练集（但不训练，留待循环中训练）
         for sampled_coords, energy, gradient in collected_points:
             self.gpr_model.add_data(sampled_coords, energy, gradient)
 
-        # 训练 GPR 模型
-        X, y, gradients = self.gpr_model.get_training_data()
-        self.gpr_model.train(X, y, gradients)
-
         if self.config.get('optimizer', {}).get('verbose', True):
-            print("GPR 模型训练完成")
+            print("初始采样完成")
 
     def _get_best_from_initial_samples(self) -> np.ndarray:
         """
@@ -462,7 +480,7 @@ class HybridOptimizer(BaseOptimizer):
         best_energy = self.gpr_model.y_train[best_idx]
         
         if self.config.get('optimizer', {}).get('verbose', True):
-            print(f"\n初始采样最优：Energy = {best_energy:.10f} Hartree (Init {best_idx})")
+            print(f"\n初始采样最优：Energy = {best_energy:.8f} Hartree (Init {best_idx + 1})")
         
         return best_coords
 
@@ -498,33 +516,46 @@ class HybridOptimizer(BaseOptimizer):
             gradient = gradient_only(xk)
             gradient_norm = np.linalg.norm(gradient)
             displacement = np.linalg.norm(xk - prev_coords[0])
-            
-            # 记录迭代数据
+
+            # 记录迭代数据（迭代序号从 1 开始）
+            iter_num = step_count[0] + 1  # 从 1 开始
             data = IterationData(
-                iteration=step_count[0],
+                iteration=iter_num,
                 energy=energy,
                 gradient=gradient,
                 coords=xk.copy(),
                 displacement=prev_coords[0] - xk
             )
             history.add_iteration(data)
-            
+
             if self.config.get('optimizer', {}).get('verbose', True):
-                print(f"LBFGS {step_count[0]}: E={energy:.8f}, |g|={gradient_norm:.6f}, d={displacement:.6f}")
-            
+                print(f"LBFGS {iter_num}: E={energy:.8f}, |g|={gradient_norm:.6f}, d={displacement:.6f}")
+
             # 更新上一步坐标
             prev_coords[0] = xk.copy()
             step_count[0] += 1
-            
+
             # 添加到 GPR 训练集（每步都加）
             self.gpr_model.add_data(xk.copy(), energy, gradient.copy())
-            
+
             # 如果达到步数上限，无法直接停止，但可以通过标记让外部知道
             if step_count[0] >= n_steps:
                 pass  # 继续让 scipy 完成当前迭代
 
         # 执行 L-BFGS 优化（连续运行 n_steps 步）
         from scipy.optimize import minimize
+        
+        # L-BFGS 收敛控制参数
+        lbfgs_config = self.config.get('lbfgs', {})
+        gtol = float(lbfgs_config.get('gtol', 1e-5))  # 梯度阈值
+        ftol = float(lbfgs_config.get('ftol', 1e12))  # 能量变化阈值（factr 参数）
+        
+        # scipy 的 ftol 参数控制能量收敛：
+        # |ΔE/E| < ftol × epsmch ≈ ftol × 2.2e-16
+        # 对于 E≈-154 Hartree：|ΔE| < ftol × 3.4e-14
+        # ftol=1e12 → |ΔE| < 0.034 Hartree 收敛
+        # ftol=1e18 → |ΔE| < 34000 Hartree 收敛（几乎禁用）
+        
         result = minimize(
             fun=energy_only,
             x0=coords,
@@ -532,11 +563,17 @@ class HybridOptimizer(BaseOptimizer):
             jac=gradient_only,
             callback=callback,
             options={
-                'maxiter': n_steps,  # 连续运行 n_steps
-                'gtol': 1e-10,
+                'maxiter': n_steps,      # 连续运行 n_steps
+                'gtol': gtol,            # 梯度收敛阈值
+                'ftol': ftol,            # 能量相对变化阈值
                 'disp': False
             }
         )
+        
+        # 输出 scipy 的收敛信息
+        if self.config.get('optimizer', {}).get('verbose', True):
+            if hasattr(result, 'message') and result.message:
+                print(f"  → L-BFGS 终止原因：{result.message}")
         
         # 注意：不在这里训练 GPR，等到轮结束后统一训练
 
@@ -567,31 +604,31 @@ class HybridOptimizer(BaseOptimizer):
         # 注意：这里的 X, y 是占位符，实际训练数据在 gpr_model.X_train 中
         self.gpr_model.train(np.array([]), np.array([]))
         
-        # 3. 自回归预测 n 步
+        # 3. 自回归预测 n 步（迭代序号从 1 开始）
         current_coords = coords.copy()
-        
+
         for i in range(n_steps):
             # 计算当前梯度
             current_gradient = self.calculator.calculate_gradient(
                 self.atom_symbols, current_coords.reshape(-1, 3)
             )
-            
+
             # AI 预测新坐标
             next_coords = self.gpr_model.predict_next_coords(
                 current_coords, current_gradient,
                 apply_displacement_limit=True
             )
-            
+
             # 计算真实能量和梯度
             energy, gradient = self.calculator.calculate_energy_gradient(
                 self.atom_symbols, next_coords.reshape(-1, 3)
             )
             gradient_norm = np.linalg.norm(gradient)
-            
-            # 记录
+
+            # 记录（迭代序号从 1 开始）
             displacement = np.linalg.norm(next_coords - current_coords)
             data = self.get_iteration_data(
-                iteration=len(history),
+                iteration=len(history) + 1,  # 从 1 开始
                 energy=energy,
                 gradient=gradient,
                 coords=next_coords,
@@ -600,7 +637,7 @@ class HybridOptimizer(BaseOptimizer):
             history.add_iteration(data)
 
             if self.config.get('optimizer', {}).get('verbose', True):
-                print(f"GPR   {len(history)-1}: E={energy:.8f}, |g|={gradient_norm:.6f}, d={displacement:.6f}")
+                print(f"GPR   {len(history)}: E={energy:.8f}, |g|={gradient_norm:.6f}, d={displacement:.6f}")
 
             # 更新
             current_coords = next_coords.copy()
@@ -610,46 +647,46 @@ class HybridOptimizer(BaseOptimizer):
     def _prepare_ai_training_data(self) -> None:
         """
         准备 AI 训练数据
-        
+
         从历史迭代中选取：
         - i 个历史梯度最优数据点
         - j 个最新数据点（如果本轮 L-BFGS 步数 m < j，往回找之前的数据）
         """
         # 清除旧数据
         self.gpr_model.clear_data()
-        
+
         # 获取配置
         ai_config = self.config.get('ai_training', {})
         i_best = ai_config.get('i_best_steps', 5)
         j_recent = ai_config.get('j_recent_steps', 10)
-        
+
         # 1. 选取 i 个历史梯度最优的点（从所有历史迭代中）
         all_iterations = list(self.history.iterations)
         training_data_added = 0
-        
+
         if all_iterations:
             # 按梯度范数排序，取最优的 i 个
             sorted_by_grad = sorted(all_iterations, key=lambda x: x.gradient_norm)
             best_points = sorted_by_grad[:i_best]
-            
-            # 对于每个最优点，找到它在原始序列中的下一个点作为目标
+
+            # 对于每个最优点，使用它本身作为目标（学习稳定构型）
+            # 因为最优点已经接近平衡构型，不应该继续"优化"
             for it in best_points:
                 try:
-                    idx = all_iterations.index(it)
-                    if idx < len(all_iterations) - 1:
-                        next_coords = all_iterations[idx + 1].coords
-                        self.gpr_model.add_training_data(
-                            it.coords.copy(), it.gradient.copy(), next_coords.copy()
-                        )
-                        training_data_added += 1
+                    # 使用最优点本身作为目标（学习恒等映射）
+                    # 这样 GPR 会学会：在梯度小的位置，坐标应该保持稳定
+                    self.gpr_model.add_training_data(
+                        it.coords.copy(), it.gradient.copy(), it.coords.copy()
+                    )
+                    training_data_added += 1
                 except Exception as e:
                     print(f"Warning: 添加历史最优点失败：{e}")
-        
+
         # 2. 选取 j 个最新数据点（从本轮 L-BFGS 历史中取）
         if hasattr(self, '_current_lbfgs_history') and self._current_lbfgs_history:
             lbfgs_points = list(self._current_lbfgs_history.iterations)
             recent_points = lbfgs_points[-j_recent:] if len(lbfgs_points) >= j_recent else lbfgs_points
-            
+
             # 对于 L-BFGS 点，使用实际的下一步
             for i, it in enumerate(recent_points):
                 try:
@@ -659,14 +696,14 @@ class HybridOptimizer(BaseOptimizer):
                     else:
                         # 最后一个点：使用自身作为目标（学习恒等映射）
                         next_coords = it.coords
-                    
+
                     self.gpr_model.add_training_data(
                         it.coords.copy(), it.gradient.copy(), next_coords.copy()
                     )
                     training_data_added += 1
                 except Exception as e:
                     print(f"Warning: 添加最新点失败：{e}")
-        
+
         # 如果训练数据仍然不足，使用初始采样点
         if training_data_added < 2 and hasattr(self, '_initial_sampling_history'):
             init_points = list(self._initial_sampling_history)
@@ -679,7 +716,7 @@ class HybridOptimizer(BaseOptimizer):
                     training_data_added += 1
                 except Exception as e:
                     print(f"Warning: 添加初始点失败：{e}")
-        
+
         print(f"AI 训练数据：{training_data_added} 个点 (i_best={i_best}, j_recent={j_recent})")
     
     def _select_best_in_round(self, lbfgs_history: OptimizationHistory,

@@ -583,6 +583,89 @@ my_ai:
   param2: value2
 ```
 
+---
+
+## 3D 分子结构可视化
+
+优化完成后，可以使用 `draw_structure3D.py` 批量生成 HTML 格式的 3D 分子结构图。
+
+### 执行方式
+
+**方法 1：使用默认路径（推荐）**
+```bash
+# 自动从配置文件读取 output 目录
+python draw_structure3D.py
+```
+
+**方法 2：指定 structures 目录**
+```bash
+# 直接指定 structures 目录路径
+python draw_structure3D.py /path/to/output/structures
+```
+
+### 输出文件
+
+脚本会将 `structures` 目录下所有 `.xyz` 文件转换为同名的 `.html` 文件：
+
+```
+output/
+├── structures/
+│   ├── lbfgs_initial.xyz         ← 原始 XYZ 文件
+│   ├── lbfgs_initial.html        ← 生成的 HTML
+│   ├── lbfgs_final.xyz
+│   ├── lbfgs_final.html
+│   ├── hybrid_gpr_initial.xyz
+│   ├── hybrid_gpr_initial.html
+│   ├── hybrid_gpr_final.xyz
+│   └── hybrid_gpr_final.html
+```
+
+### HTML 文件说明
+
+- **标题**：使用文件名（如 "lbfgs_final"）
+- **显示**：球棍模型（原子=球体，化学键=棍子）
+- **交互**：
+  - 旋转：鼠标拖动
+  - 缩放：鼠标滚轮
+  - 平移：右键拖动
+
+### 示例输出
+
+```bash
+$ python draw_structure3D.py
+
+使用配置文件定义的目录：./output/structures
+
+找到 4 个 XYZ 文件:
+  - hybrid_gpr_final.xyz
+  - hybrid_gpr_initial.xyz
+  - lbfgs_final.xyz
+  - lbfgs_initial.xyz
+
+开始生成 HTML 文件...
+分子结构图已保存：./output/structures/hybrid_gpr_final.html
+分子结构图已保存：./output/structures/hybrid_gpr_initial.html
+分子结构图已保存：./output/structures/lbfgs_final.html
+分子结构图已保存：./output/structures/lbfgs_initial.html
+
+完成！生成了 4 个 HTML 文件:
+  ✓ hybrid_gpr_final.html
+  ✓ hybrid_gpr_initial.html
+  ✓ lbfgs_final.html
+  ✓ lbfgs_initial.html
+
+提示：用浏览器打开 HTML 文件可查看交互式 3D 分子结构。
+```
+
+### 依赖
+
+需要安装 `py3Dmol`：
+```bash
+pip install py3Dmol
+```
+
+---
+
 ## 常见问题
 
 ### Q: 优化不收敛怎么办？

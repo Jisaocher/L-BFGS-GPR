@@ -4,7 +4,7 @@
 molecule:
   smiles: "CCO"           # 乙醇 SMILES
   seed: 42                 # 随机种子
-  perturb_strength: 0.1    # 初始扰动强度 (Å)，0.1 用于快速收敛
+  perturb: 0    # 初始扰动强度 (Å)，0 用于快速收敛
 
 # 计算方法
 calculation:
@@ -15,13 +15,14 @@ calculation:
 # 优化器通用设置
 optimizer:
   max_iterations: 300      # 最大迭代次数（增加以允许充分收敛）
-  convergence_threshold: 5.0e-4  # 梯度收敛阈值（实际可达成）
+  convergence_threshold: 1.0e-4  # 梯度收敛阈值（实际可达成）
   verbose: true            # 是否输出详细信息
 
 # L-BFGS 设置
 lbfgs:
   maxiter: 500             # L-BFGS 最大迭代
-  gtol: 1.0e-5             # 梯度阈值
+  gtol: 1.0e-4             # 投影梯度范数阈值（‖E‖ < gtol 时收敛）
+  ftol: 1e-10              # 能量变化阈值（factr 参数）
   memory: 10               # L-BFGS 记忆步数
 
 # GPR 设置
@@ -45,7 +46,7 @@ ai_training:
 # AI 预测配置
 ai_prediction:
   max_displacement: 0.3    # 最大位移限制 (Å)，防止预测点偏离太远
-  min_displacement: 0.01   # 最小位移 (Å)，避免预测点不变
+  min_displacement: 0.001   # 最小位移 (Å)，避免预测点不变
 
 # 最优点选择权重（用于 L-BFGS+AI 混合策略）
 # 每轮从所有点中选择最优时，综合考虑能量和梯度
@@ -66,11 +67,17 @@ selection_weights:
 # 混合策略设置
 hybrid:
   lbfgs_steps: 10           # 每轮 L-BFGS 步数 (m)
-  gpr_steps: 2             # 每轮 GPR 步数 (n)
+  gpr_steps: 2              # 每轮 GPR 步数 (n)
   selection_metric: "gradient"  # 选择标准：gradient(梯度最小)/energy(能量最低)
                                # 分子几何优化应该用 gradient，目标是找到梯度为零的点
   verify_local_minimum: false   # 验证局部极小值（关闭以加快训练）
   verify_extra_steps: 3         # 确认极小值额外步数
+  
+  # 收敛判定参数
+  convergence:
+    threshold: 1.0e-4        # 梯度收敛阈值（与 optimizer.convergence_threshold 一致）
+    max_no_improvement: 50  # 连续多少轮无显著改进则早停
+    no_improvement_threshold: 1.0e-6  # 梯度改进阈值（小于此值认为无改进）
 
 # 输出设置
 output:

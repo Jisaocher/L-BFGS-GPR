@@ -1,0 +1,65 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>hybrid_gradient_predicting_initial</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; }
+                h1 { color: #2c3e50; margin-top: 20px; }
+                .container { display: flex; justify-content: center; align-items: center; }
+            </style>
+        </head>
+        <body>
+            <h1>hybrid_gradient_predicting_initial</h1>
+            <div class="container">
+                <div id="3dmolviewer_17759813002995548"  style="position: relative; width: 800px; height: 600px;">
+        <p id="3dmolwarning_17759813002995548" style="background-color:#ffcccc;color:black">3Dmol.js failed to load for some reason.  Please check your browser console for error messages.<br></p>
+        </div>
+<script>
+
+var loadScriptAsync = function(uri){
+  return new Promise((resolve, reject) => {
+    //this is to ignore the existence of requirejs amd
+    var savedexports, savedmodule;
+    if (typeof exports !== 'undefined') savedexports = exports;
+    else exports = {}
+    if (typeof module !== 'undefined') savedmodule = module;
+    else module = {}
+
+    var tag = document.createElement('script');
+    tag.src = uri;
+    tag.async = true;
+    tag.onload = () => {
+        exports = savedexports;
+        module = savedmodule;
+        resolve();
+    };
+  var firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+});
+};
+
+if(typeof $3Dmolpromise === 'undefined') {
+$3Dmolpromise = null;
+  $3Dmolpromise = loadScriptAsync('https://cdn.jsdelivr.net/npm/3dmol@2.5.4/build/3Dmol-min.js');
+}
+
+var viewer_17759813002995548 = null;
+var warn = document.getElementById("3dmolwarning_17759813002995548");
+if(warn) {
+    warn.parentNode.removeChild(warn);
+}
+$3Dmolpromise.then(function() {
+viewer_17759813002995548 = $3Dmol.createViewer(document.getElementById("3dmolviewer_17759813002995548"),{backgroundColor:"white"});
+viewer_17759813002995548.zoomTo();
+	viewer_17759813002995548.addModel("9\nmolecule_CCO\nC     -0.953455     0.047804     0.042499\nC      0.487919    -0.321539    -0.189050\nO      1.276978     0.324784     0.737673\nH     -1.357013     0.733975    -0.733223\nH     -1.593321    -0.862570     0.021759\nH     -1.071031     0.596439     1.011163\nH      0.787406    -0.140609    -1.235774\nH      0.590028    -1.426110    -0.044030\nH      1.832490     1.047825     0.388982","xyz");
+	viewer_17759813002995548.setStyle({"sphere": {"scale": 0.3}, "stick": {"radius": 0.15}});
+	viewer_17759813002995548.zoomTo();
+viewer_17759813002995548.render();
+});
+</script>
+            </div>
+        </body>
+        </html>
+        

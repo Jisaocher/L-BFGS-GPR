@@ -31,9 +31,10 @@ class LBFGSOptimizer(BaseOptimizer):
         
         # L-BFGS 特定参数
         lbfgs_config = config.get('lbfgs', {})
-        self.maxiter = lbfgs_config.get('maxiter', 100)
-        self.gtol = lbfgs_config.get('gtol', 1e-5)
-        self.memory = lbfgs_config.get('memory', 10)
+        self.maxiter = int(lbfgs_config.get('maxiter', 100))
+        self.gtol = float(lbfgs_config.get('gtol', 1e-5))
+        self.ftol = float(lbfgs_config.get('ftol', 1e-10))  # 能量变化阈值（factr 参数）
+        self.memory = int(lbfgs_config.get('memory', 10))
         
         # 内部状态
         self._energy_func = None
@@ -84,6 +85,7 @@ class LBFGSOptimizer(BaseOptimizer):
             options={
                 'maxiter': self.maxiter,
                 'gtol': self.gtol,
+                'ftol': self.ftol,  # 能量变化阈值
                 'disp': False
             }
         )
@@ -92,7 +94,7 @@ class LBFGSOptimizer(BaseOptimizer):
 
         # 检查收敛
         final_grad_norm = np.linalg.norm(self._energy_func.gradient_only(result.x))
-        self.history.converged = final_grad_norm < self.gtol
+        self.history.converged = result.message == "CONVERGENCE: NORM_OF_PROJECTED_GRADIENT_<=_PGTOL" # final_grad_norm < self.gtol * 5
         if self.history.converged:
             self.history.convergence_iteration = len(self.history) - 1
 

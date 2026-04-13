@@ -133,7 +133,9 @@ def run_optimization(method: str, molecule: Molecule, config: Dict[str, Any],
             molecule.smiles,
             f"{molecule.name}_best_{method}"
         )
-        output_manager.save_final_structure(best_mol, method)
+        # 保存最优结构为 XYZ 文件（用于后续 3D 可视化）
+        # save_final_structure 会保存为 {method}_{ai_suffix}_final.xyz
+        output_manager.save_final_structure(best_mol, method, ai_method)
     
     # 生成图表
     vis_config = config.get('visualization', {})
@@ -155,55 +157,10 @@ def run_optimization(method: str, molecule: Molecule, config: Dict[str, Any],
     
     plotter.plot_all(history, f"{plots_dir}/{method}", title_prefix, ai_method=ai_method)
 
-    # 生成 3D 结构图
-    if vis_config.get('show_3d_structure', True):
-        vis = MoleculeVisualizer3D(
-            font_size=vis_config.get('font_size', 14),
-            figure_size=tuple(vis_config.get('figure_size', [10, 8])),
-            dpi=vis_config.get('dpi', 300),
-            ai_method=ai_method  # 传递 AI 方法类型
-        )
+    # 注意：3D 结构图需要单独运行 draw_structure3D.py 生成
+    # if vis_config.get('show_3d_structure', True):
+    #     ...
 
-        # 初始结构
-        output_manager.save_initial_structure(molecule, method)
-
-        # 最优结构（使用 best_coords 而不是 final）
-        best_mol = Molecule(
-            molecule.atom_symbols,
-            best_coords.reshape(-1, 3),
-            molecule.smiles,
-            f"{molecule.name}_best"
-        )
-        
-        # 保存最优结构为 XYZ 文件
-        output_manager.save_final_structure(best_mol, method)
-
-        structures_dir = os.path.join(output_manager.save_dir, 'structures')
-
-        # 构建结构文件名：如果有 AI 方法后缀，则添加到文件名中
-        if ai_method:
-            ai_suffix = _get_ai_method_suffix(ai_method)
-            struct_filename = f"{method}_{ai_suffix}_comparison.png"
-        else:
-            struct_filename = f"{method}_comparison.png"
-
-        # 图题中标注 AI 方法
-        if ai_method:
-            titles = [
-                'Initial', 
-                f'Best ({ai_method})\nE={best_mol.coords[0,0]:.4f}...'
-            ]
-        else:
-            titles = ['Initial', f'Best (E={best_mol.coords[0,0]:.4f}...)']
-
-        vis.visualize_comparison(
-            [molecule, best_mol],
-            titles=titles,
-            save_path=f"{structures_dir}/{struct_filename}",
-            elevation=30,  # 更有立体感的仰角
-            azimuth=45     # 方位角
-        )
-    
     # 返回结果
     best = history.get_best_iteration('energy')
     results = {
@@ -272,36 +229,52 @@ def main():
             config['optimizer'] = {}
         config['optimizer']['convergence_threshold'] = args.threshold
     
-    # 分子设置
+    # 分子设置：优先使用配置文件，命令行参数覆盖配置
     if 'molecule' not in config:
         config['molecule'] = {}
-    
+
+    # 命令行参数覆盖配置（如果提供了）
     if args.smiles:
         config['molecule']['smiles'] = args.smiles
-    elif args.molecule == 'ethanol':
-        config['molecule']['smiles'] = 'CCO'
-    elif args.molecule == 'water':
-        config['molecule']['smiles'] = 'O'
-    elif args.molecule == 'methane':
-        config['molecule']['smiles'] = 'C'
-    else:
-        config['molecule']['smiles'] = 'CCO'  # 默认乙醇
-    
-    config['molecule']['seed'] = args.seed
-    config['molecule']['perturb_strength'] = args.perturb
+    # 否则使用配置文件中的 smiles（已经在上一步读取）
+
+    if args.seed != 42:  # 用户指定了种子
+        config['molecule']['seed'] = args.seed
+    # 否则使用配置文件中的 seed
+
+    if args.perturb != 0.0:  # 用户指定了扰动
+        config['molecule']['perturb'] = args.perturb
+    # 否则使用配置文件中的 perturb
 
     # 获取 AI 方法类型（用于输出文件命名）
     ai_method = None
     if args.method == 'hybrid':
         ai_method = config.get('gpr', {}).get('type', 'simple')
 
+    # 获取 smiles（用于输出目录命名）
+    smiles = config['molecule']['smiles']
+    seed = config['molecule']['seed']
+    perturb = config['molecule']['perturb']
+
+    # 修改输出目录：添加 smiles 和扰动水平作为目录名
+    # 例如：output/CCO_0/lbfgs_*.json 或 output/CCO_0.2/lbfgs_*.json
+    if 'output' not in config:
+        config['output'] = {}
+
+    original_save_dir = config['output'].get('save_dir', './output')
+    
+    # 构建目录名：smiles_perturb
+    # 扰动值格式化为整数或一位小数
+    if perturb == int(perturb):
+        perturb_str = str(int(perturb))
+    else:
+        perturb_str = f"{perturb:.1f}".rstrip('0').rstrip('.')
+    
+    dir_name = f"{smiles}_{perturb_str}"
+    config['output']['save_dir'] = os.path.join(original_save_dir, dir_name)
+
     # 创建输出管理器
     output_manager = create_output_manager(config, ai_method=ai_method)
-
-    # 创建分子
-    smiles = config['molecule']['smiles']
-    perturb = config['molecule']['perturb_strength']
-    seed = config['molecule']['seed']
 
     print(f"\n{'='*70}")
     print("L-BFGS-GPR 混合优化项目")
@@ -315,12 +288,15 @@ def main():
     print(f"输出目录：{output_manager.save_dir}")
     print(f"{'='*70}")
     
-    # 生成初始分子
+    # 创建分子
     molecule = Molecule.from_smiles(smiles, seed=seed, perturb_strength=perturb)
-    
+
     print(f"\n初始结构:")
     print(f"  原子数：{molecule.n_atoms}")
     print(f"  自由度：{molecule.n_atoms * 3}")
+
+    # 保存初始结构为 XYZ 文件（用于后续 3D 可视化）
+    output_manager.save_initial_structure(molecule, args.method, ai_method)
     
     # 运行优化
     results = run_optimization(args.method, molecule, config, output_manager, ai_method)

@@ -1,0 +1,134 @@
+(gpr_env) liuzhe@tianxuan:/mnt/e/wsl_dir/L-BFGS-GPR/new_method$ python main.py --method lbfgs --smiles CCCC --perturb 0.2
+/home/liuzhe/miniconda3/envs/gpr_env/lib/python3.9/site-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.16.5 and <1.23.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+
+======================================================================
+L-BFGS-GPR 混合优化项目
+======================================================================
+分子：CCCC
+扰动：0.2 Å
+种子：42
+方法：lbfgs
+输出目录：./output/CCCC
+======================================================================
+
+初始结构:
+  原子数：14
+  自由度：42
+分子结构已保存：./output/CCCC/structures/lbfgs_initial.xyz
+
+======================================================================
+运行优化：LBFGS
+======================================================================
+======================================================================
+L-BFGS 优化开始
+======================================================================
+初始能量：-156.9719209614 Hartree
+原子数：14
+自由度：42
+======================================================================
+Iter    0: Energy = -157.1975670744 Hartree, |grad| = 0.608358, disp=0.449341
+Iter    1: Energy = -157.2548488766 Hartree, |grad| = 0.314848, disp=0.208839
+Iter    2: Energy = -157.2774031098 Hartree, |grad| = 0.151244, disp=0.104534
+Iter    3: Energy = -157.2874388850 Hartree, |grad| = 0.136625, disp=0.115543
+Iter    4: Energy = -157.2936815052 Hartree, |grad| = 0.093420, disp=0.090751
+Iter    5: Energy = -157.2980832619 Hartree, |grad| = 0.078789, disp=0.150969
+Iter    6: Energy = -157.2998370584 Hartree, |grad| = 0.044064, disp=0.050166
+Iter    7: Energy = -157.3006470832 Hartree, |grad| = 0.030880, disp=0.034078
+Iter    8: Energy = -157.3013175171 Hartree, |grad| = 0.027428, disp=0.058110
+Iter    9: Energy = -157.3016934121 Hartree, |grad| = 0.031067, disp=0.046436
+Iter   10: Energy = -157.3020072494 Hartree, |grad| = 0.021922, disp=0.022816
+Iter   11: Energy = -157.3024695965 Hartree, |grad| = 0.017363, disp=0.063726
+Iter   12: Energy = -157.3026731172 Hartree, |grad| = 0.021561, disp=0.041905
+Iter   13: Energy = -157.3028923940 Hartree, |grad| = 0.015808, disp=0.037979
+Iter   14: Energy = -157.3030716802 Hartree, |grad| = 0.024579, disp=0.063051
+Iter   15: Energy = -157.3032190531 Hartree, |grad| = 0.013411, disp=0.020128
+Iter   16: Energy = -157.3032971768 Hartree, |grad| = 0.011288, disp=0.010310
+Iter   17: Energy = -157.3034619024 Hartree, |grad| = 0.011615, disp=0.047009
+Iter   18: Energy = -157.3034851633 Hartree, |grad| = 0.031103, disp=0.062691
+Iter   19: Energy = -157.3036301244 Hartree, |grad| = 0.013560, disp=0.007860
+Iter   20: Energy = -157.3037391399 Hartree, |grad| = 0.009773, disp=0.022769
+Iter   21: Energy = -157.3039320506 Hartree, |grad| = 0.018785, disp=0.064561
+Iter   22: Energy = -157.3042377123 Hartree, |grad| = 0.028862, disp=0.113140
+Iter   23: Energy = -157.3048374459 Hartree, |grad| = 0.046745, disp=0.259623
+Iter   24: Energy = -157.3055396593 Hartree, |grad| = 0.049940, disp=0.178921
+Iter   25: Energy = -157.3065295800 Hartree, |grad| = 0.040421, disp=0.256775
+Iter   26: Energy = -157.3067529546 Hartree, |grad| = 0.043192, disp=0.051923
+Iter   27: Energy = -157.3070712527 Hartree, |grad| = 0.034818, disp=0.098428
+Iter   28: Energy = -157.3072949338 Hartree, |grad| = 0.020146, disp=0.023157
+Iter   29: Energy = -157.3074072898 Hartree, |grad| = 0.012822, disp=0.012241
+Iter   30: Energy = -157.3076064575 Hartree, |grad| = 0.010961, disp=0.058142
+Iter   31: Energy = -157.3076814252 Hartree, |grad| = 0.010844, disp=0.028738
+Iter   32: Energy = -157.3077201952 Hartree, |grad| = 0.009706, disp=0.036372
+Iter   33: Energy = -157.3077491576 Hartree, |grad| = 0.005511, disp=0.012775
+Iter   34: Energy = -157.3077752953 Hartree, |grad| = 0.005290, disp=0.010092
+Iter   35: Energy = -157.3077953919 Hartree, |grad| = 0.005362, disp=0.017861
+Iter   36: Energy = -157.3078123007 Hartree, |grad| = 0.008514, disp=0.021343
+Iter   37: Energy = -157.3078326355 Hartree, |grad| = 0.004092, disp=0.007194
+Iter   38: Energy = -157.3078463435 Hartree, |grad| = 0.004640, disp=0.007579
+Iter   39: Energy = -157.3078674088 Hartree, |grad| = 0.006240, disp=0.016251
+Iter   40: Energy = -157.3079037825 Hartree, |grad| = 0.011503, disp=0.038489
+Iter   41: Energy = -157.3079571649 Hartree, |grad| = 0.009114, disp=0.043740
+Iter   42: Energy = -157.3080318869 Hartree, |grad| = 0.007605, disp=0.063749
+Iter   43: Energy = -157.3080710002 Hartree, |grad| = 0.013902, disp=0.072166
+Iter   44: Energy = -157.3081069810 Hartree, |grad| = 0.005194, disp=0.009303
+Iter   45: Energy = -157.3081169879 Hartree, |grad| = 0.003687, disp=0.004796
+Iter   46: Energy = -157.3081294019 Hartree, |grad| = 0.003741, disp=0.008057
+Iter   47: Energy = -157.3081406316 Hartree, |grad| = 0.004569, disp=0.011650
+Iter   48: Energy = -157.3081537839 Hartree, |grad| = 0.004306, disp=0.020594
+Iter   49: Energy = -157.3081639487 Hartree, |grad| = 0.003497, disp=0.013718
+Iter   50: Energy = -157.3081738094 Hartree, |grad| = 0.003345, disp=0.014147
+Iter   51: Energy = -157.3081856685 Hartree, |grad| = 0.004063, disp=0.019067
+Iter   52: Energy = -157.3081999925 Hartree, |grad| = 0.005323, disp=0.033228
+Iter   53: Energy = -157.3082120390 Hartree, |grad| = 0.003562, disp=0.018447
+Iter   54: Energy = -157.3082192453 Hartree, |grad| = 0.002688, disp=0.006759
+Iter   55: Energy = -157.3082258894 Hartree, |grad| = 0.002619, disp=0.008759
+Iter   56: Energy = -157.3082310135 Hartree, |grad| = 0.004422, disp=0.012773
+Iter   57: Energy = -157.3082375097 Hartree, |grad| = 0.002867, disp=0.005515
+Iter   58: Energy = -157.3082484226 Hartree, |grad| = 0.003454, disp=0.016398
+Iter   59: Energy = -157.3082609270 Hartree, |grad| = 0.004798, disp=0.021418
+Iter   60: Energy = -157.3082825229 Hartree, |grad| = 0.010779, disp=0.069605
+Iter   61: Energy = -157.3083094443 Hartree, |grad| = 0.005411, disp=0.033634
+Iter   62: Energy = -157.3083240471 Hartree, |grad| = 0.003893, disp=0.010387
+Iter   63: Energy = -157.3083360897 Hartree, |grad| = 0.003761, disp=0.021421
+Iter   64: Energy = -157.3083425887 Hartree, |grad| = 0.004956, disp=0.012082
+Iter   65: Energy = -157.3083486838 Hartree, |grad| = 0.002396, disp=0.010663
+Iter   66: Energy = -157.3083528680 Hartree, |grad| = 0.001920, disp=0.014306
+Iter   67: Energy = -157.3083553977 Hartree, |grad| = 0.002373, disp=0.008756
+Iter   68: Energy = -157.3083615671 Hartree, |grad| = 0.003208, disp=0.026857
+Iter   69: Energy = -157.3083668553 Hartree, |grad| = 0.003979, disp=0.025036
+Iter   70: Energy = -157.3083714543 Hartree, |grad| = 0.002417, disp=0.006533
+Iter   71: Energy = -157.3083756377 Hartree, |grad| = 0.001800, disp=0.007656
+Iter   72: Energy = -157.3083780477 Hartree, |grad| = 0.001792, disp=0.005548
+Iter   73: Energy = -157.3083797153 Hartree, |grad| = 0.003626, disp=0.015330
+Iter   74: Energy = -157.3083823783 Hartree, |grad| = 0.001073, disp=0.004611
+Iter   75: Energy = -157.3083829157 Hartree, |grad| = 0.000827, disp=0.002993
+Iter   76: Energy = -157.3083836607 Hartree, |grad| = 0.000773, disp=0.005845
+Iter   77: Energy = -157.3083839931 Hartree, |grad| = 0.000928, disp=0.003660
+Iter   78: Energy = -157.3083842819 Hartree, |grad| = 0.000433, disp=0.002459
+Iter   79: Energy = -157.3083843788 Hartree, |grad| = 0.000263, disp=0.000636
+======================================================================
+优化完成！
+最终能量：-157.3083843788 Hartree
+最终梯度范数：0.000263
+迭代次数：80
+收敛状态：是
+计算时间：1191.25 秒
+能量/梯度调用次数：250
+优化终止原因：CONVERGENCE: NORM_OF_PROJECTED_GRADIENT_<=_PGTOL
+优化成功标志：True
+======================================================================
+优化历史已保存：./output/CCCC/lbfgs_20260412_134614.json
+优化轨迹已保存：./output/CCCC/trajectories/lbfgs_trajectory_20260412_134614.xyz
+详细迭代信息已保存：./output/CCCC/lbfgs_details_20260412_134614.json
+分子结构已保存：./output/CCCC/structures/lbfgs_final.xyz
+
+======================================================================
+优化结果
+======================================================================
+方法：lbfgs
+收敛：是
+最优能量：-157.3083843788 Hartree
+最优梯度范数：0.000263
+迭代次数：80
+======================================================================

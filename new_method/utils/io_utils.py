@@ -238,13 +238,50 @@ class OutputManager:
         print(f"分子结构已保存：{filepath}")
         return filepath
     
-    def save_initial_structure(self, molecule: Molecule, method_name: str) -> str:
-        """保存初始结构"""
-        return self.save_structure(molecule, "initial", f"{method_name}_")
+    def save_initial_structure(self, molecule: Molecule, method_name: str,
+                              ai_method: str = None) -> str:
+        """
+        保存初始结构
+        
+        Args:
+            molecule: 分子对象
+            method_name: 方法名称
+            ai_method: AI 方法类型（可选）
+        
+        Returns:
+            filepath: 保存的文件路径
+        """
+        # 如果有 ai_method，添加到文件名中
+        if ai_method:
+            ai_suffix = ai_method.replace('gradient_', '').replace('_', '')
+            prefix = f"{method_name}_{ai_suffix}_"
+        else:
+            prefix = f"{method_name}_"
+        
+        return self.save_structure(molecule, "initial", prefix)
     
-    def save_final_structure(self, molecule: Molecule, method_name: str) -> str:
-        """保存最终结构"""
-        return self.save_structure(molecule, "final", f"{method_name}_")
+    def save_final_structure(self, molecule: Molecule, method_name: str,
+                            ai_method: str = None) -> str:
+        """
+        保存最终/最优结构
+        
+        Args:
+            molecule: 分子对象
+            method_name: 方法名称
+            ai_method: AI 方法类型（可选）
+        
+        Returns:
+            filepath: 保存的文件路径
+        """
+        # 如果有 ai_method，添加到文件名中
+        if ai_method:
+            # 从 ai_method 提取后缀，如 'gradient_predicting' -> 'predicting'
+            ai_suffix = ai_method.replace('gradient_', '').replace('_', '')
+            prefix = f"{method_name}_{ai_suffix}_"
+        else:
+            prefix = f"{method_name}_"
+        
+        return self.save_structure(molecule, "final", prefix)
     
     def save_iteration_details(self, history: OptimizationHistory,
                                method_name: str,
