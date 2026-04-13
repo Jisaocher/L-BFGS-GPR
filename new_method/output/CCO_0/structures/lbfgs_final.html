@@ -3,7 +3,7 @@
         <html>
         <head>
             <meta charset="utf-8">
-            <title>hybrid_predicting_initial</title>
+            <title>lbfgs_final</title>
             <style>
                 body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; }
                 h1 { color: #2c3e50; margin-top: 20px; }
@@ -11,10 +11,10 @@
             </style>
         </head>
         <body>
-            <h1>hybrid_predicting_initial</h1>
+            <h1>lbfgs_final</h1>
             <div class="container">
-                <div id="3dmolviewer_17760931154497952"  style="position: relative; width: 800px; height: 600px;">
-        <p id="3dmolwarning_17760931154497952" style="background-color:#ffcccc;color:black">3Dmol.js failed to load for some reason.  Please check your browser console for error messages.<br></p>
+                <div id="3dmolviewer_17760931158521605"  style="position: relative; width: 800px; height: 600px;">
+        <p id="3dmolwarning_17760931158521605" style="background-color:#ffcccc;color:black">3Dmol.js failed to load for some reason.  Please check your browser console for error messages.<br></p>
         </div>
 <script>
 
@@ -45,18 +45,18 @@ $3Dmolpromise = null;
   $3Dmolpromise = loadScriptAsync('https://cdn.jsdelivr.net/npm/3dmol@2.5.4/build/3Dmol-min.js');
 }
 
-var viewer_17760931154497952 = null;
-var warn = document.getElementById("3dmolwarning_17760931154497952");
+var viewer_17760931158521605 = null;
+var warn = document.getElementById("3dmolwarning_17760931158521605");
 if(warn) {
     warn.parentNode.removeChild(warn);
 }
 $3Dmolpromise.then(function() {
-viewer_17760931154497952 = $3Dmol.createViewer(document.getElementById("3dmolviewer_17760931154497952"),{backgroundColor:"white"});
-viewer_17760931154497952.zoomTo();
-	viewer_17760931154497952.addModel("9\nmolecule_C1CC1\nC     -0.642010    -0.433633     0.097417\nC     -0.206488     0.680936    -0.231224\nC      0.650292    -0.029567     0.142107\nH     -1.058598    -1.155201     1.097211\nH     -0.743841    -1.315983    -1.022961\nH     -0.711883     1.381193     0.768491\nH     -0.265625     1.282034    -1.024494\nH      1.341036    -0.499181    -0.829799\nH      1.350200    -0.159151     0.940646","xyz");
-	viewer_17760931154497952.setStyle({"sphere": {"scale": 0.3}, "stick": {"radius": 0.15}});
-	viewer_17760931154497952.zoomTo();
-viewer_17760931154497952.render();
+viewer_17760931158521605 = $3Dmol.createViewer(document.getElementById("3dmolviewer_17760931158521605"),{backgroundColor:"white"});
+viewer_17760931158521605.zoomTo();
+	viewer_17760931158521605.addModel("9\nmolecule_CCO_best_lbfgs\nC     -0.915444     0.075953     0.054697\nC      0.509059    -0.418219    -0.129863\nO      1.450149     0.389624     0.524203\nH     -1.048811     1.065847    -0.392896\nH     -1.627088    -0.602860    -0.421830\nH     -1.160104     0.149108     1.116133\nH      0.743367    -0.502174    -1.197728\nH      0.619158    -1.413650     0.300664\nH      1.429714     1.256371     0.146620","xyz");
+	viewer_17760931158521605.setStyle({"sphere": {"scale": 0.3}, "stick": {"radius": 0.15}});
+	viewer_17760931158521605.zoomTo();
+viewer_17760931158521605.render();
 });
 </script>
             </div>

@@ -13,8 +13,8 @@
         <body>
             <h1>lbfgs_final</h1>
             <div class="container">
-                <div id="3dmolviewer_1776093115758656"  style="position: relative; width: 800px; height: 600px;">
-        <p id="3dmolwarning_1776093115758656" style="background-color:#ffcccc;color:black">3Dmol.js failed to load for some reason.  Please check your browser console for error messages.<br></p>
+                <div id="3dmolviewer_17760931155877814"  style="position: relative; width: 800px; height: 600px;">
+        <p id="3dmolwarning_17760931155877814" style="background-color:#ffcccc;color:black">3Dmol.js failed to load for some reason.  Please check your browser console for error messages.<br></p>
         </div>
 <script>
 
@@ -45,18 +45,18 @@ $3Dmolpromise = null;
   $3Dmolpromise = loadScriptAsync('https://cdn.jsdelivr.net/npm/3dmol@2.5.4/build/3Dmol-min.js');
 }
 
-var viewer_1776093115758656 = null;
-var warn = document.getElementById("3dmolwarning_1776093115758656");
+var viewer_17760931155877814 = null;
+var warn = document.getElementById("3dmolwarning_17760931155877814");
 if(warn) {
     warn.parentNode.removeChild(warn);
 }
 $3Dmolpromise.then(function() {
-viewer_1776093115758656 = $3Dmol.createViewer(document.getElementById("3dmolviewer_1776093115758656"),{backgroundColor:"white"});
-viewer_1776093115758656.zoomTo();
-	viewer_1776093115758656.addModel("14\nmolecule_CCCC_best_lbfgs\nC     -1.642113     0.333735     0.011683\nC     -0.574521    -0.459417    -0.740319\nC      0.692988    -0.754428     0.067315\nC      1.510564     0.478902     0.448350\nH     -1.296020     1.334091     0.280468\nH     -1.934639    -0.176387     0.934195\nH     -2.539774     0.451991    -0.599832\nH     -0.301321     0.077278    -1.655859\nH     -1.007382    -1.410680    -1.065359\nH      0.421234    -1.304947     0.975144\nH      1.326708    -1.428962    -0.516913\nH      2.428882     0.190360     0.965214\nH      0.958907     1.147904     1.112305\nH      1.795746     1.051322    -0.439274","xyz");
-	viewer_1776093115758656.setStyle({"sphere": {"scale": 0.3}, "stick": {"radius": 0.15}});
-	viewer_1776093115758656.zoomTo();
-viewer_1776093115758656.render();
+viewer_17760931155877814 = $3Dmol.createViewer(document.getElementById("3dmolviewer_17760931155877814"),{backgroundColor:"white"});
+viewer_17760931155877814.zoomTo();
+	viewer_17760931155877814.addModel("14\nmolecule_CCCC_best_lbfgs\nC     -1.632398     0.361501     0.017313\nC     -0.562514    -0.453358    -0.708089\nC      0.707326    -0.714431     0.107745\nC      1.521498     0.534402     0.442731\nH     -1.290856     1.372603     0.249298\nH     -1.920345    -0.116786     0.958136\nH     -2.531860     0.453620    -0.596076\nH     -0.293385     0.051415    -1.642879\nH     -0.991728    -1.417601    -0.997887\nH      0.438611    -1.232015     1.035567\nH      1.342383    -1.408069    -0.452174\nH      2.440282     0.268358     0.970861\nH      0.967479     1.226156     1.080852\nH      1.805507     1.074205    -0.465399","xyz");
+	viewer_17760931155877814.setStyle({"sphere": {"scale": 0.3}, "stick": {"radius": 0.15}});
+	viewer_17760931155877814.zoomTo();
+viewer_17760931155877814.render();
 });
 </script>
             </div>
