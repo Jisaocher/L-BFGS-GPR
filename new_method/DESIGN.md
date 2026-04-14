@@ -4,7 +4,6 @@
 
 ### 1.1 抽象核心逻辑
 
-**是的，您的描述基本一致。**
 
 核心逻辑：使用 AI 方法（gradient_predicting）**模仿 L-BFGS 优化器的轨迹，向前预测**，从而帮助 L-BFGS 更快完成优化。
 
@@ -341,10 +340,10 @@ kernel = (
 
 给定训练数据 $\mathcal{D} = \{(\mathbf{x}_i, y_i)\}_{i=1}^n$，新输入 $\mathbf{x}_*$ 的预测：
 
-$$\begin{aligned}
-\mu_* &= \mathbf{k}_*^T (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{y} \\
-\sigma_*^2 &= k(\mathbf{x}_*, \mathbf{x}_*) - \mathbf{k}_*^T (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{k}_*
-\end{aligned}$$
+\begin{aligned}
+\mu_{*} &= \mathbf{k}_{*}^{\mathsf{T}} (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{y} \\
+\sigma_{*}^2 &= k(\mathbf{x}_{*}, \mathbf{x}_{*}) - \mathbf{k}_{*}^{\mathsf{T}} (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{k}_{*}
+\end{aligned}
 
 ### 4.2 L-BFGS 优化算法
 
