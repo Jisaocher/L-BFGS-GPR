@@ -230,15 +230,15 @@ def select_best_from_round():
 
 对于包含 $N$ 个原子的分子，总能量 $E$ 是 $3N$ 个坐标的函数：
 
-\[E = E(\mathbf{R}) = E(x_1, y_1, z_1, x_2, y_2, z_2, \ldots, x_N, y_N, z_N)\]
+$$E = E(\mathbf{R}) = E(x_1, y_1, z_1, x_2, y_2, z_2, \ldots, x_N, y_N, z_N)$$
 
 **梯度向量**（一阶导数）：
 
-\[\mathbf{g} = \nabla E(\mathbf{R}) = \left[ \frac{\partial E}{\partial x_1}, \frac{\partial E}{\partial y_1}, \frac{\partial E}{\partial z_1}, \ldots, \frac{\partial E}{\partial z_N} \right]^T \in \mathbb{R}^{3N}\]
+$$\mathbf{g} = \nabla E(\mathbf{R}) = \left[ \frac{\partial E}{\partial x_1}, \frac{\partial E}{\partial y_1}, \frac{\partial E}{\partial z_1}, \ldots, \frac{\partial E}{\partial z_N} \right]^T \in \mathbb{R}^{3N}$$
 
 #### 3.1.2 梯度范数（欧几里得范数）
 
-\[\|\mathbf{g}\| = \sqrt{\sum_{i=1}^{N} \left[ \left(\frac{\partial E}{\partial x_i}\right)^2 + \left(\frac{\partial E}{\partial y_i}\right)^2 + \left(\frac{\partial E}{\partial z_i}\right)^2 \right]}\]
+$$\|\mathbf{g}\| = \sqrt{\sum_{i=1}^{N} \left[ \left(\frac{\partial E}{\partial x_i}\right)^2 + \left(\frac{\partial E}{\partial y_i}\right)^2 + \left(\frac{\partial E}{\partial z_i}\right)^2 \right]}$$
 
 **物理意义**：
 - $\|\mathbf{g}\| = 0$：系统处于**稳定点**（极小值、极大值或鞍点）
@@ -285,7 +285,7 @@ lbfgs:
 ```
 
 **收敛判定**：
-\[\|\mathbf{g}\| < 10^{-4} \text{ Hartree/Å} \quad \Rightarrow \quad \text{优化收敛}\]
+$$\|\mathbf{g}\| < 10^{-4} \text{ Hartree/Å} \quad \Rightarrow \quad \text{优化收敛}$$
 
 ---
 
@@ -297,7 +297,7 @@ lbfgs:
 
 高斯过程回归是一种**非参数贝叶斯回归方法**：
 
-\[f(\mathbf{x}) \sim \mathcal{GP}(m(\mathbf{x}), k(\mathbf{x}, \mathbf{x}'))\]
+$$f(\mathbf{x}) \sim \mathcal{GP}(m(\mathbf{x}), k(\mathbf{x}, \mathbf{x}'))$$
 
 - $m(\mathbf{x})$：均值函数（通常设为 0）
 - $k(\mathbf{x}, \mathbf{x}')$：核函数（协方差函数）
@@ -315,7 +315,7 @@ gpr:
 
 **Matérn 5/2 核**：
 
-\[k_{\text{Matérn-5/2}}(r) = \sigma^2 \left(1 + \frac{\sqrt{5}r}{\ell} + \frac{5r^2}{3\ell^2}\right) \exp\left(-\frac{\sqrt{5}r}{\ell}\right)\]
+$$k_{\text{Matérn-5/2}}(r) = \sigma^2 \left(1 + \frac{\sqrt{5}r}{\ell} + \frac{5r^2}{3\ell^2}\right) \exp\left(-\frac{\sqrt{5}r}{\ell}\right)$$
 
 其中：
 - $r = \|\mathbf{x} - \mathbf{x}'\|$：两点间距离
@@ -341,10 +341,10 @@ kernel = (
 给定训练数据 $\mathcal{D} = \{(\mathbf{x}_i, y_i)\}_{i=1}^n$，新输入 $\mathbf{x}_*$ 的预测：
 
 预测均值：
-\[\mu_* = \mathbf{k}_*^T (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{y}\]
+$$\mu_* = \mathbf{k}_*^T (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{y}$$
 
 预测方差：
-\[\sigma_*^2 = k(\mathbf{x}_*, \mathbf{x}_*) - \mathbf{k}_*^T (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{k}_*\]
+$$\sigma_*^2 = k(\mathbf{x}_*, \mathbf{x}_*) - \mathbf{k}_*^T (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{k}_*$$
 
 其中：
 - $\mathbf{K}$：训练数据协方差矩阵，$K_{ij} = k(\mathbf{x}_i, \mathbf{x}_j)$
@@ -358,11 +358,11 @@ kernel = (
 
 **拟牛顿法**：用近似 Hessian 矩阵 $\mathbf{B}_k$ 替代真实 Hessian
 
-\[\mathbf{x}_{k+1} = \mathbf{x}_k - \alpha_k \mathbf{B}_k^{-1} \nabla E(\mathbf{x}_k)\]
+$$\mathbf{x}_{k+1} = \mathbf{x}_k - \alpha_k \mathbf{B}_k^{-1} \nabla E(\mathbf{x}_k)$$
 
 **BFGS 更新公式**：
 
-\[\mathbf{B}_{k+1} = \mathbf{B}_k + \frac{\mathbf{y}_k \mathbf{y}_k^T}{\mathbf{y}_k^T \mathbf{s}_k} - \frac{\mathbf{B}_k \mathbf{s}_k \mathbf{s}_k^T \mathbf{B}_k}{\mathbf{s}_k^T \mathbf{B}_k \mathbf{s}_k}\]
+$$\mathbf{B}_{k+1} = \mathbf{B}_k + \frac{\mathbf{y}_k \mathbf{y}_k^T}{\mathbf{y}_k^T \mathbf{s}_k} - \frac{\mathbf{B}_k \mathbf{s}_k \mathbf{s}_k^T \mathbf{B}_k}{\mathbf{s}_k^T \mathbf{B}_k \mathbf{s}_k}$$
 
 其中：
 - $\mathbf{s}_k = \mathbf{x}_{k+1} - \mathbf{x}_k$
@@ -386,13 +386,13 @@ kernel = (
 
 对于有边界约束的问题，使用**投影梯度**：
 
-\[\|\mathbf{g}_{\text{proj}}\| = \sqrt{\sum_i g_{\text{proj},i}^2}\]
+$$\|\mathbf{g}_{\text{proj}}\| = \sqrt{\sum_i g_{\text{proj},i}^2}$$
 
-\[g_{\text{proj},i} = \begin{cases}
+$$g_{\text{proj},i} = \begin{cases}
 \frac{\partial E}{\partial x_i} & \text{if } x_i \text{ 在边界内} \\
 \min(0, \frac{\partial E}{\partial x_i}) & \text{if } x_i \text{ 在下界} \\
 \max(0, \frac{\partial E}{\partial x_i}) & \text{if } x_i \text{ 在上界}
-\end{cases}\]
+\end{cases}$$
 
 ### 4.3 量子化学计算
 
@@ -408,7 +408,7 @@ calculation:
 **RHF（Restrict Hartree-Fock）**：
 - 闭壳层分子
 - 自旋轨道配对
-- 能量：\(E_{\text{RHF}} = \langle \Psi | \hat{H} | \Psi \rangle\)
+- 能量：$E_{\text{RHF}} = \langle \Psi | \hat{H} | \Psi \rangle$
 
 #### 4.3.2 基组（Basis Set）
 
@@ -421,13 +421,13 @@ calculation:
 
 PySCF 计算的梯度是**解析梯度**（不是数值微分）：
 
-\[\frac{\partial E}{\partial \mathbf{R}} = \left\langle \Psi \left| \frac{\partial \hat{H}}{\partial \mathbf{R}} \right| \Psi \right\rangle + \text{波函数响应项}\]
+$$\frac{\partial E}{\partial \mathbf{R}} = \left\langle \Psi \left| \frac{\partial \hat{H}}{\partial \mathbf{R}} \right| \Psi \right\rangle + \text{波函数响应项}$$
 
 **单位转换**：
 - PySCF 内部：Hartree/Bohr
 - 输出（Angstrom 坐标）：Hartree/Å
 
-\[1 \text{ Hartree/Bohr} = \frac{1}{0.529177} \text{ Hartree/Å} \approx 1.8897 \text{ Hartree/Å}\]
+$$1 \text{ Hartree/Bohr} = \frac{1}{0.529177} \text{ Hartree/Å} \approx 1.8897 \text{ Hartree/Å}$$
 
 ### 4.4 Python 库调用
 
