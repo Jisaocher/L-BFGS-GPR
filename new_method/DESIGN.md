@@ -340,10 +340,17 @@ kernel = (
 
 给定训练数据 $\mathcal{D} = \{(\mathbf{x}_i, y_i)\}_{i=1}^n$，新输入 $\mathbf{x}_*$ 的预测：
 
-\begin{aligned}
-\mu_{*} &= \mathbf{k}_{*}^{\mathsf{T}} (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{y} \\
-\sigma_{*}^2 &= k(\mathbf{x}_{*}, \mathbf{x}_{*}) - \mathbf{k}_{*}^{\mathsf{T}} (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{k}_{*}
-\end{aligned}
+预测均值：
+$$\mu_* = \mathbf{k}_*^T (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{y}$$
+
+预测方差：
+$$\sigma_*^2 = k(\mathbf{x}_*, \mathbf{x}_*) - \mathbf{k}_*^T (\mathbf{K} + \sigma_n^2 \mathbf{I})^{-1} \mathbf{k}_*$$
+
+其中：
+- $\mathbf{K}$：训练数据协方差矩阵，$K_{ij} = k(\mathbf{x}_i, \mathbf{x}_j)$
+- $\mathbf{k}_*$：测试点与训练点的协方差向量，$k_*(\mathbf{x}_*) = [k(\mathbf{x}_1, \mathbf{x}_*), \ldots, k(\mathbf{x}_n, \mathbf{x}_*)]^T$
+- $\sigma_n^2$：噪声方差
+- $\mathbf{I}$：单位矩阵
 
 ### 4.2 L-BFGS 优化算法
 
