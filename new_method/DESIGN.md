@@ -109,12 +109,11 @@ self.lbfgs_optimizer = LBFGSOptimizer(config)
 # 2. 初始化 GPR 模型（维度 = 3 * n_atoms * 2 = 54 维输入）
 self.gpr_model = GradientPredictingGPR(config, dim)
 
-# 3. 设置边界（基于初始坐标的局部区域）
-self._setup_bounds(molecule)
-
-# 4. 初始采样：L-BFGS 运行 n_init 步生成训练数据
+# 3. 初始采样：L-BFGS 运行 n_init 步生成训练数据
 self._initial_sampling(molecule)
 ```
+
+**注意**：`_setup_bounds(molecule)` 虽然被调用，但 `gradient_predicting` 方法实际不使用边界约束。GPR 预测点的约束通过 `max_displacement`（最大位移限制）实现，而非边界截断。
 
 #### 2.3.2 主循环（每轮）
 
@@ -172,7 +171,7 @@ def _prepare_ai_training_data(self):
 def predict_next_coords(self, coords, gradient):
     """
     预测下一步坐标（自回归方式）
-    
+
     1. 构建输入：input_vec = [coords, gradient] (54 维)
     2. 对每个坐标分量预测：next_coords[i] = model[i].predict(input_vec)
     3. 应用位移限制：
@@ -180,18 +179,20 @@ def predict_next_coords(self, coords, gradient):
        - 最小位移：min_displacement = 0.001 Å
     """
     input_vec = np.concatenate([coords, gradient]).reshape(1, -1)
-    
+
     # 27 个独立 GPR 模型，每个预测一个坐标分量
     for i in range(self.dim):
         next_coords[i] = self.models[i].predict(input_vec)[0]
-    
+
     # 位移限制（防止预测点偏离太远）
     displacement = next_coords - coords
     if ||displacement|| > max_displacement:
         displacement *= (max_displacement / ||displacement||)
-    
+
     return coords + displacement
 ```
+
+**注意**：`gradient_predicting` 方法不使用 `_setup_bounds()` 设置的边界约束。GPR 预测点的空间约束通过 `max_displacement` 位移限制实现，而非边界截断。这使得 GPR 可以在势能面上更自由地探索，同时步长受到控制。
 
 #### 2.3.5 最优点选择策略
 
@@ -538,7 +539,11 @@ for i in range(n_steps):
 | `selection_weights.energy_weight` | 能量选择权重 | 0.3 |
 | `selection_weights.gradient_weight` | 梯度选择权重 | 0.7 |
 | `ai_prediction.max_displacement` | GPR 最大位移限制 | 0.3 Å |
+| `ai_prediction.min_displacement` | GPR 最小位移限制 | 0.001 Å |
+| `gpr.local_radius` | 边界半径（仅采集函数用） | 0.1 Å |
 | `gpr.max_training_points` | GPR 最大训练点数 | 15 |
+
+**注意**：`gpr.local_radius` 设置的边界仅用于采集函数优化，`gradient_predicting` 方法实际不使用边界约束。GPR 预测点的空间约束通过 `ai_prediction.max_displacement` 实现。
 
 ### 5.2 核心变量
 
